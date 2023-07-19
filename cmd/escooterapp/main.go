@@ -1,28 +1,13 @@
 package main
 
 import (
-	"bytes"
-	"fmt"
 	"net/http"
+
+	"github.com/integer00/e-scooter/internal/repo"
+	log "github.com/sirupsen/logrus"
 )
 
 var SCOOTER_API = "http://localhost:8080/register"
-
-func doHTTPRequest(method string, payload []byte, url string) http.Response {
-
-	bodyReader := bytes.NewReader(payload)
-
-	req, err := http.NewRequest(method, url, bodyReader)
-	if err != nil {
-		println("request failed")
-	}
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		panic(err)
-	}
-
-	return *res
-}
 
 func startScooterHandler(w http.ResponseWriter, req *http.Request) {
 	// check session, parse request
@@ -36,25 +21,25 @@ func stopScooterHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func startScooter() {
-	println("scooter is started!")
+	log.Println("scooter is started!")
 }
 func stopScooter() {
-	println("scooter is stopped!")
+	log.Println("scooter is stopped!")
 }
 
 func healthHandler(w http.ResponseWriter, req *http.Request) {
 
-	fmt.Println("OK")
+	log.Println("OK")
 
 }
 
 func doRegister() error {
 	jsonBody := []byte(`{"id": "kappa_ride", "address": "127.0.0.1:8081"}`)
 
-	res := doHTTPRequest("POST", jsonBody, SCOOTER_API)
+	res := repo.DoHTTPRequest("POST", jsonBody, SCOOTER_API)
 
-	fmt.Printf("client: got response!\n")
-	fmt.Printf("client: status code: %d\n", res.StatusCode)
+	log.Printf("client: got response!\n")
+	log.Printf("client: status code: %d\n", res.StatusCode)
 
 	return nil
 }
@@ -82,7 +67,7 @@ func main() {
 
 	// need to implement logic - start->go to api endpoint for registration->try until registred->send pings from time to time
 
-	fmt.Println("serving at :8080")
+	log.Println("serving at :8080")
 	httpServer.ListenAndServe()
 
 }

@@ -1,9 +1,9 @@
 package main
 
 import (
-	"bytes"
-	"net/http"
 	"time"
+
+	"github.com/integer00/e-scooter/internal/repo"
 )
 
 var (
@@ -18,27 +18,11 @@ func parseQRCode() string {
 	return QR_CODE
 }
 
-func doHTTPRequest(method string, payload []byte, url string) http.Response {
-
-	bodyReader := bytes.NewReader(payload)
-
-	req, err := http.NewRequest(method, url, bodyReader)
-	if err != nil {
-		println("request failed")
-	}
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		panic(err)
-	}
-
-	return *res
-}
-
 func startRide() {
 	jsonBody := []byte(`{"id": "kappa_ride"}`)
 	var url = START_ENDPOINT
 
-	response := doHTTPRequest("POST", jsonBody, url)
+	response := repo.DoHTTPRequest("POST", jsonBody, url)
 
 	println(response.StatusCode)
 }
@@ -47,7 +31,7 @@ func stopRide() {
 	jsonBody := []byte(`{"id": "kappa_ride"}`)
 	var url = STOP_ENDPOINT
 
-	response := doHTTPRequest("POST", jsonBody, url)
+	response := repo.DoHTTPRequest("POST", jsonBody, url)
 
 	println(response.StatusCode)
 }
