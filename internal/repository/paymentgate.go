@@ -1,14 +1,18 @@
-package repo
+package repository
 
 import (
 	"errors"
 
-	"github.com/integer00/e-scooter/internal/models"
+	"github.com/integer00/e-scooter/internal/entity"
 	log "github.com/sirupsen/logrus"
 )
 
 type PaymentGate struct {
 	//PG is an external service, mocking
+}
+
+func NewPG() entity.PaymentGateway {
+	return &PaymentGate{}
 }
 
 func (pg PaymentGate) ChargeDeposit() error {
@@ -22,10 +26,6 @@ func (pg PaymentGate) ChargeFair() error {
 }
 func (pg PaymentGate) GetUserBalance() (int, error) {
 	return 1000, nil
-}
-
-func NewPG() models.PaymentGateway {
-	return &PaymentGate{}
 }
 
 func PgHandler(userid string, operation string) error {

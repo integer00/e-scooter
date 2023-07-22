@@ -1,9 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"net/http"
 
-	"github.com/integer00/e-scooter/internal/repo"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -36,7 +36,7 @@ func healthHandler(w http.ResponseWriter, req *http.Request) {
 func doRegister() error {
 	jsonBody := []byte(`{"id": "kappa_ride", "address": "127.0.0.1:8081"}`)
 
-	res := repo.DoHTTPRequest("POST", jsonBody, SCOOTER_API)
+	res := DoHTTPRequest("POST", jsonBody, SCOOTER_API)
 
 	log.Printf("client: got response!\n")
 	log.Printf("client: status code: %d\n", res.StatusCode)
@@ -50,6 +50,22 @@ func getRoutes() {
 	http.HandleFunc("/start", startScooterHandler)
 	http.HandleFunc("/stop", stopScooterHandler)
 
+}
+
+func DoHTTPRequest(method string, payload []byte, url string) http.Response {
+
+	bodyReader := bytes.NewReader(payload)
+
+	req, err := http.NewRequest(method, url, bodyReader)
+	if err != nil {
+		println("request failed")
+	}
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		panic(err)
+	}
+
+	return *res
 }
 
 func main() {
@@ -67,7 +83,7 @@ func main() {
 
 	// need to implement logic - start->go to api endpoint for registration->try until registred->send pings from time to time
 
-	log.Println("serving at :8080")
+	log.Println("serving at :8081")
 	httpServer.ListenAndServe()
 
 }
