@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"io/ioutil"
 	"net/http"
 	"time"
 )
@@ -24,7 +25,9 @@ func startRide() {
 
 	response := DoHTTPRequest("POST", jsonBody, url)
 
-	println(response.StatusCode)
+	r, _ := ioutil.ReadAll(response.Body)
+
+	println(response.StatusCode, string(r))
 }
 
 func stopRide() {
@@ -33,7 +36,9 @@ func stopRide() {
 
 	response := DoHTTPRequest("POST", jsonBody, url)
 
-	println(response.StatusCode)
+	r, _ := ioutil.ReadAll(response.Body)
+
+	println(response.StatusCode, string(r))
 }
 
 func DoHTTPRequest(method string, payload []byte, url string) http.Response {
@@ -55,7 +60,7 @@ func DoHTTPRequest(method string, payload []byte, url string) http.Response {
 func main() {
 
 	startRide()
-	time.Sleep(10 * time.Second)
+	time.Sleep(2 * time.Second)
 	stopRide()
 
 }

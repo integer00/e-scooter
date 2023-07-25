@@ -41,7 +41,7 @@ func (sapp ScooterService) StopScooter(ctx context.Context, sc entity.Scooter) e
 func (sapp ScooterService) start(sc entity.Scooter) error {
 	println("starting with" + sc.Address)
 
-	DoHTTPRequest("POST", []byte(sc.ID), "http://"+sc.Address+"/start")
+	DoHTTPRequest("POST", []byte(sc.Id), "http://"+sc.Address+"/start")
 
 	return nil
 }
@@ -49,7 +49,7 @@ func (sapp ScooterService) start(sc entity.Scooter) error {
 func (sapp ScooterService) stop(sc entity.Scooter) error {
 	println("stopping with" + sc.Address)
 
-	DoHTTPRequest("POST", []byte(sc.ID), "http://"+sc.Address+"/stop")
+	DoHTTPRequest("POST", []byte(sc.Id), "http://"+sc.Address+"/stop")
 
 	return nil
 }

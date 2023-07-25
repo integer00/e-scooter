@@ -24,28 +24,33 @@ func NewScooterController(u entity.UseCase) entity.Controller {
 func (sc ScoController) NewMux() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/register", sc.registerEndpointHandler)
-	mux.HandleFunc("/endpoints", sc.getEndpoints)
+	mux.HandleFunc("/scooters", sc.getScootersHandler)
 	mux.HandleFunc("/start", sc.startScooterHandler)
 	mux.HandleFunc("/stop", sc.stopScooterHandler)
 	return mux
 }
 
 func (sc ScoController) registerEndpointHandler(w http.ResponseWriter, req *http.Request) {
+	log.Info("asking for registration")
 	p := parseRequest(*req)
 
 	sc.scooterUseCase.RegisterScooter(p)
+
+	w.WriteHeader(http.StatusOK)
+
 }
 
-func (sc ScoController) getEndpoints(w http.ResponseWriter, req *http.Request) {
-	log.Println("endpoints at controller, sending to usecase")
+func (sc ScoController) getScootersHandler(w http.ResponseWriter, req *http.Request) {
+	//this returns scooterID+geoCoordinates like {"id":"kappa_ride","location":"coordinates"}
 
-	// s := sc.scooterUseCase.GetEndpoints()
+	log.Info("asking for endpoints")
 
-	// io.WriteString(w, s)
+	s := sc.scooterUseCase.GetEndpoints()
+	w.Header().Add("Content-Type", "application/json")
 
-	// var response = scooterRegistry.(string)
+	w.WriteHeader(http.StatusOK)
+	w.Write(s)
 
-	// log.Fprintf(w, scooterRegistry)
 }
 
 // might be also /api/scooter/:id/(start\stop)
@@ -54,34 +59,43 @@ func (sc ScoController) startScooterHandler(w http.ResponseWriter, req *http.Req
 
 	s := parseRequest(*req)
 
-	ctx := context.WithValue(context.Background(), "scooter", s.ID)
+	ctx := context.WithValue(context.Background(), "scooter", s.Id)
 
-	sc.scooterUseCase.StartScooter(ctx)
+	err := sc.scooterUseCase.StartScooter(ctx)
+	if err != nil {
+		log.Warn(err)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(err.Error()))
+	}
+
 }
 func (sc ScoController) stopScooterHandler(w http.ResponseWriter, req *http.Request) {
-	log.Info("asking for start")
+	log.Info("asking for stop")
 
 	s := parseRequest(*req)
 
-	ctx := context.WithValue(context.Background(), "scooter", s.ID)
+	ctx := context.WithValue(context.Background(), "scooter", s.Id)
 
-	sc.scooterUseCase.StopScooter(ctx)
+	err := sc.scooterUseCase.StopScooter(ctx)
+	if err != nil {
+		log.Warn(err)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(err.Error()))
+	}
 }
 
-func parseRequest(req http.Request) *entity.Scooter {
-	var s = &entity.Scooter{}
+func parseRequest(req http.Request) entity.Scooter {
+	var s = entity.Scooter{}
 
 	validate := validator.New()
 
 	err := json.NewDecoder(req.Body).Decode(&s)
 	if err != nil {
-		log.Error("could not decode json")
-		panic(err)
+		log.Warn(err)
 
 	}
 	if err := validate.Struct(s); err != nil {
-		log.Error("could not validate json")
-		panic(err)
+		log.Warn(err)
 	}
 	return s
 }

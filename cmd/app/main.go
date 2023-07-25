@@ -10,6 +10,7 @@ import (
 	webapi "github.com/integer00/e-scooter/internal/repository/webAPI"
 	"github.com/integer00/e-scooter/internal/usecase"
 	"github.com/integer00/e-scooter/pkg/httpserver"
+	"github.com/rs/cors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -30,14 +31,10 @@ func Run() {
 	scoController := http.NewScooterController(scoUsecase)
 	//can be also like service.{component}.{component_action}
 
-	// scoUsecase.GetEndpoints()
-	// scoUsecase.GetScooter("s")
-	// scoController.GetEndpoints()
-	// scoUsecase.StartScooter("s")
-
 	mux := scoController.NewMux()
+	handler := cors.Default().Handler(mux)
 
-	httpServer := httpserver.New(mux)
+	httpServer := httpserver.New(handler)
 
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)

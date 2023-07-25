@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"encoding/json"
 	"errors"
 
 	"github.com/integer00/e-scooter/internal/entity"
@@ -8,13 +9,14 @@ import (
 )
 
 type ScooterRegistry struct {
-	registry map[string]string
+	// registry map[string]string
+	registry []entity.Scooter
 }
 
 // TODO need interface for ScooterRegistry
 func NewRegistry() *ScooterRegistry {
 	return &ScooterRegistry{
-		registry: make(map[string]string),
+		registry: []entity.Scooter{},
 	}
 }
 
@@ -30,50 +32,77 @@ func NewRegistry() *ScooterRegistry {
 
 // }
 
-func (sr ScooterRegistry) RegisterScooter(scooter *entity.Scooter) error {
+func (sr *ScooterRegistry) RegisterScooter(scooter entity.Scooter) error {
 	log.Info("New registration!")
 	sr.registerScooter(scooter)
 
 	return nil
 }
 
-func (sr ScooterRegistry) GetScooterById(s string) entity.Scooter {
+func (sr ScooterRegistry) GetScooterById(s string) (entity.Scooter, error) {
+
+	log.Info(sr.registry)
 
 	sc, err := sr.scooterLookupById(s)
 	if err != nil {
-		panic(err)
+		return entity.Scooter{}, errors.New("Scooter is not found!")
 	}
 
-	return sc
+	return sc, nil
 }
 
-func (sr ScooterRegistry) newScooter(id string, address string) entity.Scooter {
-	return entity.Scooter{
-		ID:      id,
-		Address: address,
+type endpoints struct {
+	Id []string
+}
+
+func (sr *ScooterRegistry) GetScooters() []byte {
+
+	// {"id": ["a","b","c"]}
+
+	log.Info("registry: ", sr.registry)
+
+	s := []string{}
+
+	for i := range sr.registry {
+		s = append(s, sr.registry[i].Id)
 	}
+
+	a, _ := json.Marshal(&endpoints{Id: s})
+
+	log.Info("json: ", string(a))
+
+	return a
 }
 
-func (sr ScooterRegistry) getScooter(scooter *entity.Scooter) {
-	// return sr.registry
-	// return "here bro"
-}
+// func (sr ScooterRegistry) newScooter(id string, address string) entity.Scooter {
+// 	return entity.Scooter{
+// 		Id:      id,
+// 		Address: address,
+// 	}
+// }
 
-func (sr ScooterRegistry) registerScooter(scooter *entity.Scooter) {
+// func (sr ScooterRegistry) getScooter(scooter *entity.Scooter) {
+// 	// return sr.registry
+// 	// return "here bro"
+// }
 
+func (sr *ScooterRegistry) registerScooter(scooter entity.Scooter) {
 	log.Println("adding to registry...")
-	sr.registry[scooter.ID] = scooter.Address
+
+	sr.registry = append(sr.registry, scooter)
+
+	log.Info(sr.registry)
 }
 
 func (sr ScooterRegistry) scooterLookupById(id string) (entity.Scooter, error) {
 	log.Println("asking for lookup:", id)
 
-	for k, v := range sr.registry {
-		if k == id {
-			log.Println("found id in registry, " + id)
+	for i := range sr.registry {
+		if id == sr.registry[i].Id {
+			log.Info("found match for id")
+			return sr.registry[i], nil
 
-			return entity.Scooter{ID: k, Address: v}, nil
 		}
 	}
-	return entity.Scooter{ID: "kappa", Address: "kappa"}, errors.New("error finding scooter") //?
+	return entity.Scooter{Id: "kappa", Address: "kappa"}, errors.New("error finding scooter") //?
 }

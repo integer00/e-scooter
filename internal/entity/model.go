@@ -29,11 +29,16 @@ type UseCase interface {
 	GetScooter(s string) string
 	StartScooter(ctx context.Context) error
 	StopScooter(ctx context.Context) error
-	GetEndpoints() string
-	RegisterScooter(s *Scooter) error
+	GetEndpoints() []byte
+	RegisterScooter(s Scooter) error
 }
 
 type Scooter struct {
-	ID      string `json:"id" validate:"required`
+	Id      string `json:"id" validate:"required"`
 	Address string `json:"address"`
+}
+
+type User struct {
+	Id   string
+	Name string
 }

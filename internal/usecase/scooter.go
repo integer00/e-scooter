@@ -34,7 +34,7 @@ func (suc scooterUseCase) GetScooter(s string) string {
 	return "usecase returns"
 }
 
-func (suc scooterUseCase) RegisterScooter(scooter *entity.Scooter) error {
+func (suc scooterUseCase) RegisterScooter(scooter entity.Scooter) error {
 	log.Trace("usecase for scooterRegistry")
 
 	suc.scooterRegistry.RegisterScooter(scooter)
@@ -51,7 +51,10 @@ func (suc scooterUseCase) StartScooter(ctx context.Context) error {
 		panic("no scooter id")
 	}
 
-	sc := suc.scooterRegistry.GetScooterById(ctx.Value("scooter").(string))
+	sc, err := suc.scooterRegistry.GetScooterById(ctx.Value("scooter").(string))
+	if err != nil {
+		return err
+	}
 
 	suc.paymentGate.ChargeDeposit() //need action type(firstStart\finishRide)
 
@@ -66,7 +69,10 @@ func (suc scooterUseCase) StopScooter(ctx context.Context) error {
 		panic("no scooter id")
 	}
 
-	sc := suc.scooterRegistry.GetScooterById(ctx.Value("scooter").(string))
+	sc, err := suc.scooterRegistry.GetScooterById(ctx.Value("scooter").(string))
+	if err != nil {
+		return err
+	}
 
 	suc.paymentGate.ChargeFair()
 
@@ -74,8 +80,8 @@ func (suc scooterUseCase) StopScooter(ctx context.Context) error {
 	return nil
 }
 
-func (suc scooterUseCase) GetEndpoints() string {
-	log.Trace("at usecase getendpoints")
-	//returning all
-	return "here bro some endpoints from usecase"
+func (suc scooterUseCase) GetEndpoints() []byte {
+	log.Trace("usecase for getendpoints")
+
+	return suc.scooterRegistry.GetScooters()
 }
