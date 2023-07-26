@@ -2,12 +2,16 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"net/http"
+	"os"
+	"time"
 
+	"github.com/integer00/e-scooter/config"
 	log "github.com/sirupsen/logrus"
 )
 
-var SCOOTER_API = "http://localhost:8080/register"
+var SCOOTER_API = "http://localhost:8080/registerScooter"
 
 func startScooterHandler(w http.ResponseWriter, req *http.Request) {
 	// check session, parse request
@@ -33,15 +37,20 @@ func healthHandler(w http.ResponseWriter, req *http.Request) {
 
 }
 
-func doRegister() error {
+func bootstrap() {
 	jsonBody := []byte(`{"id": "kappa_ride", "address": "127.0.0.1:8081"}`)
 
-	res := DoHTTPRequest("POST", jsonBody, SCOOTER_API)
+	for {
+		err := DoHTTPRequest("POST", jsonBody, SCOOTER_API)
+		if err == nil {
+			break
+		}
+		log.Warn("could not reach bootstrap server, retrying")
+		time.Sleep(5 * time.Second)
+	}
 
-	log.Printf("client: got response!\n")
-	log.Printf("client: status code: %d\n", res.StatusCode)
+	log.Printf("client: registred with server")
 
-	return nil
 }
 
 func getRoutes() {
@@ -52,34 +61,37 @@ func getRoutes() {
 
 }
 
-func DoHTTPRequest(method string, payload []byte, url string) http.Response {
+func DoHTTPRequest(method string, payload []byte, url string) error {
 
 	bodyReader := bytes.NewReader(payload)
 
 	req, err := http.NewRequest(method, url, bodyReader)
 	if err != nil {
-		println("request failed")
+		return errors.New("could not register")
 	}
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		panic(err)
+		return errors.New("could not register")
 	}
+	log.Info(res.StatusCode)
 
-	return *res
+	return nil
 }
 
 func main() {
 
+	os.Setenv("HOST", "localhost")
+	os.Setenv("PORT", "8081")
+
+	config := config.NewConfig()
+
 	getRoutes()
 
 	httpServer := http.Server{
-		Addr: ":8081",
+		Addr: config.Host + ":" + config.Port,
 	}
 
-	err := doRegister()
-	if err != nil {
-		panic("could not register itself with api")
-	}
+	bootstrap()
 
 	// need to implement logic - start->go to api endpoint for registration->try until registred->send pings from time to time
 

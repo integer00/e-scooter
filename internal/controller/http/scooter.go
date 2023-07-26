@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -23,11 +24,59 @@ func NewScooterController(u entity.UseCase) entity.Controller {
 
 func (sc ScoController) NewMux() *http.ServeMux {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/register", sc.registerEndpointHandler)
-	mux.HandleFunc("/scooters", sc.getScootersHandler)
+	mux.HandleFunc("/login", sc.loginHandler)
+	mux.HandleFunc("/registerScooter", sc.registerEndpointHandler)
+	mux.HandleFunc("/scooters", sc.checkTokenMiddleware(sc.getScootersHandler))
 	mux.HandleFunc("/start", sc.startScooterHandler)
 	mux.HandleFunc("/stop", sc.stopScooterHandler)
 	return mux
+}
+
+func (sc ScoController) loginHandler(w http.ResponseWriter, req *http.Request) {
+	log.Info("asking for user login")
+
+	//get post form for user input
+	// name := randomstring.HumanFriendlyEnglishString(6)
+
+	s, _ := sc.scooterUseCase.UserLogin("alice")
+
+	cookie := http.Cookie{
+		Name:    "token",
+		Domain:  "localhost",
+		Path:    "/",
+		Expires: time.Now().Add(10 * time.Minute),
+		Value:   s,
+	}
+
+	http.SetCookie(w, &cookie)
+
+	http.Redirect(w, req, "http://localhost:8080/scooters", http.StatusMovedPermanently)
+
+	log.Info(s)
+
+}
+
+func (sc ScoController) checkTokenMiddleware(f http.HandlerFunc) http.HandlerFunc {
+
+	return func(w http.ResponseWriter, req *http.Request) {
+		if req.Header["token"] != nil {
+			//verify
+		}
+		//check cookie
+		cookie, err := req.Cookie("token")
+		if err != nil {
+			//we have no cookie
+			http.Error(w, `{"status": "unauthorized"}`, http.StatusUnauthorized)
+			return
+
+		}
+		// log.Info(cookie.Value)
+
+		sc.scooterUseCase.ValidateJWT(cookie.Value)
+
+		f(w, req)
+	}
+
 }
 
 func (sc ScoController) registerEndpointHandler(w http.ResponseWriter, req *http.Request) {

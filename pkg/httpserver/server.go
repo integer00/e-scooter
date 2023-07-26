@@ -11,10 +11,10 @@ type Server struct {
 	notify chan error
 }
 
-func New(handler http.Handler) *Server {
+func New(handler http.Handler, address string) *Server {
 	httpserver := http.Server{
 		Handler: handler,
-		Addr:    ":8080",
+		Addr:    address,
 	}
 
 	s := &Server{
