@@ -1,11 +1,12 @@
 package usecase
 
 import (
-	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/integer00/e-scooter/internal/entity"
@@ -37,8 +38,8 @@ func (suc scooterUseCase) UserLogin(name string) (string, error) {
 
 	//somesort of userregistry is needed
 	//check if user is there
-	ok := suc.userRegistry.GetUser(name)
-	if ok {
+	user, _ := suc.userRegistry.GetUserById(name)
+	if user != nil {
 		s := suc.generateJWT(name)
 		log.Info(s)
 		//token handling (check if exist, if valid)
@@ -58,12 +59,11 @@ func (suc scooterUseCase) UserLogin(name string) (string, error) {
 }
 
 func (suc scooterUseCase) generateJWT(name string) string {
-	token := jwt.New(jwt.SigningMethodHS512)
-	claims := token.Claims.(jwt.MapClaims)
-
-	claims["exp"] = time.Now().Add(10 * time.Minute).Unix()
-	claims["foo"] = "bar"
-	claims["user"] = name
+	token := jwt.NewWithClaims(jwt.SigningMethodHS512, jwt.MapClaims{
+		"exp":  time.Now().Add(60 * time.Minute).Unix(),
+		"user": name,
+	})
+	//todo proper claims map
 
 	tokenString, err := token.SignedString(jwtkey)
 	if err != nil {
@@ -71,11 +71,12 @@ func (suc scooterUseCase) generateJWT(name string) string {
 		log.Error(err)
 	}
 	log.Info("signing key...")
-	log.Info(tokenString)
 
 	return tokenString
 }
 func (suc scooterUseCase) ValidateJWT(s string) bool {
+	//validate token and claims
+	//check expiration
 
 	token, err := jwt.Parse(s, func(token *jwt.Token) (interface{}, error) {
 		return jwtkey, nil
@@ -83,14 +84,16 @@ func (suc scooterUseCase) ValidateJWT(s string) bool {
 	if err != nil {
 		log.Error("parse error")
 		log.Error(err)
+		return false
 	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 		log.Info(claims)
-		log.Info(claims["user"], claims["exp"], claims["bar"])
+		log.Info(claims["user"], claims["exp"])
 	} else {
 		log.Error("error with claims")
 		fmt.Println(err)
+		return false
 	}
 
 	return true
@@ -104,49 +107,41 @@ func (suc scooterUseCase) GetScooter(s string) string {
 	return "usecase returns"
 }
 
-func (suc scooterUseCase) RegisterScooter(scooter entity.Scooter) error {
+func (suc scooterUseCase) RegisterScooter(scooter *entity.Scooter) error {
 	log.Trace("usecase for scooterRegistry")
 
-	suc.scooterRegistry.RegisterScooter(scooter)
+	suc.scooterRegistry.RegisterScooter(*scooter)
 
 	return nil
 }
 
-func (suc scooterUseCase) StartScooter(ctx context.Context) error {
+func (suc scooterUseCase) StartScooter(s string) error {
 	log.Trace("usecase for starting scooter")
 	//handle all related things , charge user, start scooter
 	// validate and start has different context
 
-	if ctx.Value("scooter") == nil {
-		panic("no scooter id")
-	}
-
-	sc, err := suc.scooterRegistry.GetScooterById(ctx.Value("scooter").(string))
+	sc, err := suc.scooterRegistry.GetScooterById(s)
 	if err != nil {
 		return err
 	}
 
 	suc.paymentGate.ChargeDeposit() //need action type(firstStart\finishRide)
 
-	suc.scooterApp.StartScooter(ctx, sc)
+	suc.scooterApp.StartScooter(*sc)
 	return nil
 }
 
-func (suc scooterUseCase) StopScooter(ctx context.Context) error {
+func (suc scooterUseCase) StopScooter(s string) error {
 	log.Trace("usecase for stoping scooter")
 
-	if ctx.Value("scooter") == nil {
-		panic("no scooter id")
-	}
-
-	sc, err := suc.scooterRegistry.GetScooterById(ctx.Value("scooter").(string))
+	sc, err := suc.scooterRegistry.GetScooterById(s)
 	if err != nil {
 		return err
 	}
 
 	suc.paymentGate.ChargeFair()
 
-	suc.scooterApp.StopScooter(ctx, sc)
+	suc.scooterApp.StopScooter(*sc)
 	return nil
 }
 
@@ -154,4 +149,39 @@ func (suc scooterUseCase) GetEndpoints() []byte {
 	log.Trace("usecase for getendpoints")
 
 	return suc.scooterRegistry.GetScooters()
+}
+
+func (suc scooterUseCase) BookScooter(scooterID string, userName string) error {
+	log.Info("booking scooter...")
+	sco, err := suc.scooterRegistry.GetScooterById(scooterID)
+	if err != nil {
+		return errors.New("failed to get scooter by that id")
+	}
+	user, err := suc.userRegistry.GetUserById(userName)
+	if err != nil {
+		return errors.New("failed to get user by that id")
+	}
+
+	uuid := uuid.New()
+
+	//booking scooter, making it belong to userid
+	//doing query to db
+	//adding record to rideHistory
+
+	s := entity.Ride{
+		RideID:  uuid.String(),
+		Scooter: *sco,
+		User:    *user,
+		Status:  "booking",
+	}
+
+	//add ride to ride history
+	er := suc.scooterRegistry.AddRide(s)
+	if er != nil {
+		log.Error("failed to add ride to histry")
+
+	}
+
+	log.Infof("%+v\n", s)
+	return nil
 }

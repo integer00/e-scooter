@@ -2,7 +2,6 @@ package webapi
 
 import (
 	"bytes"
-	"context"
 	"net/http"
 
 	"github.com/integer00/e-scooter/internal/entity"
@@ -19,14 +18,14 @@ func NewScooterAPP() *ScooterService {
 }
 
 // from client post /start&id=id
-func (sapp ScooterService) StartScooter(ctx context.Context, sc entity.Scooter) error {
+func (sapp ScooterService) StartScooter(sc entity.Scooter) error {
 	log.Trace("starting scooter")
 	log.Info("Starting scooter")
 	sapp.start(sc)
 
 	return nil
 }
-func (sapp ScooterService) StopScooter(ctx context.Context, sc entity.Scooter) error {
+func (sapp ScooterService) StopScooter(sc entity.Scooter) error {
 	log.Trace("stopping scooter")
 	log.Info("Stopping scooter")
 	sapp.stop(sc)

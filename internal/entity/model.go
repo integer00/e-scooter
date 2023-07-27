@@ -1,7 +1,6 @@
 package entity
 
 import (
-	"context"
 	"net/http"
 )
 
@@ -21,21 +20,45 @@ type PaymentGateway interface {
 }
 
 type ScooterService interface {
-	StartScooter(ctx context.Context, sc Scooter) error
-	StopScooter(ctx context.Context, sc Scooter) error
+	StartScooter(sc Scooter) error
+	StopScooter(sc Scooter) error
 }
 
 type UseCase interface {
 	GetScooter(s string) string
-	StartScooter(ctx context.Context) error
-	StopScooter(ctx context.Context) error
+	StartScooter(s string) error
+	StopScooter(s string) error
 	GetEndpoints() []byte
-	RegisterScooter(s Scooter) error
+	RegisterScooter(s *Scooter) error
 	UserLogin(s string) (string, error)
 	ValidateJWT(s string) bool //remove
+	BookScooter(scooterID string, userID string) error
+}
+
+type User struct {
+	// Id   string
+	Name string
 }
 
 type Scooter struct {
 	Id      string `json:"id" validate:"required"`
 	Address string `json:"address"`
+}
+
+type Message struct {
+	Userid    string `json:"userid"`
+	Scooterid string `json:"scooterid"`
+}
+
+type Ride struct {
+	RideID      string
+	Scooter     Scooter
+	User        User
+	Date        string
+	Time        string
+	Status      string
+	FareCharged string
+	Distance    string
+	StartTime   string
+	StopTime    string
 }

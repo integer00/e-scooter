@@ -6,19 +6,26 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-playground/validator"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/go-playground/validator"
 	"github.com/integer00/e-scooter/internal/entity"
 )
 
 type ScoController struct {
 	scooterUseCase entity.UseCase
+	context        context.Context
+}
+
+type contextHandler struct {
+	context context.Context
+	handler http.Handler
 }
 
 func NewScooterController(u entity.UseCase) entity.Controller {
 	return &ScoController{
 		scooterUseCase: u,
+		context:        context.Background(),
 	}
 }
 
@@ -27,12 +34,17 @@ func (sc ScoController) NewMux() *http.ServeMux {
 	mux.HandleFunc("/login", sc.loginHandler)
 	mux.HandleFunc("/registerScooter", sc.registerEndpointHandler)
 	mux.HandleFunc("/scooters", sc.checkTokenMiddleware(sc.getScootersHandler))
-	mux.HandleFunc("/start", sc.startScooterHandler)
-	mux.HandleFunc("/stop", sc.stopScooterHandler)
+	mux.HandleFunc("/bookscooter", sc.checkTokenMiddleware(sc.bookScooterHandler))
+	mux.HandleFunc("/start", sc.checkTokenMiddleware(sc.startScooterHandler))
+	mux.HandleFunc("/stop", sc.checkTokenMiddleware(sc.stopScooterHandler))
 	return mux
 }
 
 func (sc ScoController) loginHandler(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		http.Error(w, "Wrong method", http.StatusMethodNotAllowed)
+		return
+	}
 	log.Info("asking for user login")
 
 	//get post form for user input
@@ -44,7 +56,7 @@ func (sc ScoController) loginHandler(w http.ResponseWriter, req *http.Request) {
 		Name:    "token",
 		Domain:  "localhost",
 		Path:    "/",
-		Expires: time.Now().Add(10 * time.Minute),
+		Expires: time.Now().Add(60 * time.Minute),
 		Value:   s,
 	}
 
@@ -56,7 +68,7 @@ func (sc ScoController) loginHandler(w http.ResponseWriter, req *http.Request) {
 
 }
 
-func (sc ScoController) checkTokenMiddleware(f http.HandlerFunc) http.HandlerFunc {
+func (sc *ScoController) checkTokenMiddleware(f http.HandlerFunc) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, req *http.Request) {
 		if req.Header["token"] != nil {
@@ -72,7 +84,10 @@ func (sc ScoController) checkTokenMiddleware(f http.HandlerFunc) http.HandlerFun
 		}
 		// log.Info(cookie.Value)
 
-		sc.scooterUseCase.ValidateJWT(cookie.Value)
+		if !sc.scooterUseCase.ValidateJWT(cookie.Value) {
+			http.Error(w, "cookie is invalid", http.StatusBadRequest)
+			return
+		}
 
 		f(w, req)
 	}
@@ -80,8 +95,12 @@ func (sc ScoController) checkTokenMiddleware(f http.HandlerFunc) http.HandlerFun
 }
 
 func (sc ScoController) registerEndpointHandler(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		http.Error(w, "Wrong method", http.StatusMethodNotAllowed)
+		return
+	}
 	log.Info("asking for registration")
-	p := parseRequest(*req)
+	p := parseScooter(*req)
 
 	sc.scooterUseCase.RegisterScooter(p)
 
@@ -89,7 +108,33 @@ func (sc ScoController) registerEndpointHandler(w http.ResponseWriter, req *http
 
 }
 
+func (sc ScoController) bookScooterHandler(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		http.Error(w, "Wrong method", http.StatusMethodNotAllowed)
+		return
+	}
+	log.Info("asking for booking")
+
+	msg := parseRequest(*req)
+	if msg == nil {
+		http.Error(w, "malformed json or empty payload", http.StatusBadRequest)
+		return
+	}
+	log.Info(msg)
+
+	err := sc.scooterUseCase.BookScooter("kappa_ride", "alice")
+	if err != nil {
+		log.Error(err)
+	}
+	//booked, have options to start or release
+
+}
+
 func (sc ScoController) getScootersHandler(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		http.Error(w, "Wrong method", http.StatusMethodNotAllowed)
+		return
+	}
 	//this returns scooterID+geoCoordinates like {"id":"kappa_ride","location":"coordinates"}
 
 	log.Info("asking for endpoints")
@@ -104,13 +149,19 @@ func (sc ScoController) getScootersHandler(w http.ResponseWriter, req *http.Requ
 
 // might be also /api/scooter/:id/(start\stop)
 func (sc ScoController) startScooterHandler(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		http.Error(w, "Wrong method", http.StatusMethodNotAllowed)
+		return
+	}
 	log.Info("asking for start")
 
-	s := parseRequest(*req)
+	msg := parseRequest(*req)
+	if msg == nil {
+		http.Error(w, "malformed json or empty payload", http.StatusBadRequest)
+		return
+	}
 
-	ctx := context.WithValue(context.Background(), "scooter", s.Id)
-
-	err := sc.scooterUseCase.StartScooter(ctx)
+	err := sc.scooterUseCase.StartScooter(msg.Scooterid)
 	if err != nil {
 		log.Warn(err)
 		w.WriteHeader(http.StatusBadRequest)
@@ -119,13 +170,23 @@ func (sc ScoController) startScooterHandler(w http.ResponseWriter, req *http.Req
 
 }
 func (sc ScoController) stopScooterHandler(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		http.Error(w, "Wrong method", http.StatusMethodNotAllowed)
+		return
+	}
 	log.Info("asking for stop")
+	//getting ride
 
-	s := parseRequest(*req)
+	// ride :=
 
-	ctx := context.WithValue(context.Background(), "scooter", s.Id)
+	msg := parseRequest(*req)
+	if msg == nil {
+		http.Error(w, "malformed json or empty payload", http.StatusBadRequest)
+		return
 
-	err := sc.scooterUseCase.StopScooter(ctx)
+	}
+
+	err := sc.scooterUseCase.StopScooter(msg.Scooterid)
 	if err != nil {
 		log.Warn(err)
 		w.WriteHeader(http.StatusBadRequest)
@@ -133,15 +194,31 @@ func (sc ScoController) stopScooterHandler(w http.ResponseWriter, req *http.Requ
 	}
 }
 
-func parseRequest(req http.Request) entity.Scooter {
-	var s = entity.Scooter{}
+func parseRequest(req http.Request) *entity.Message {
+
+	var s = new(entity.Message)
+
+	// validate := validator.New()
+
+	err := json.NewDecoder(req.Body).Decode(&s)
+	if err != nil {
+		return nil
+	}
+	// if err := validate.Struct(s); err != nil {
+	// 	log.Warn(err)
+	// }
+	return s
+}
+
+func parseScooter(req http.Request) *entity.Scooter {
+
+	var s = new(entity.Scooter)
 
 	validate := validator.New()
 
 	err := json.NewDecoder(req.Body).Decode(&s)
 	if err != nil {
-		log.Warn(err)
-
+		return nil
 	}
 	if err := validate.Struct(s); err != nil {
 		log.Warn(err)
