@@ -18,16 +18,18 @@ type scooterUseCase struct {
 	scooterApp      entity.ScooterService
 	paymentGate     entity.PaymentGateway
 	userRegistry    *repository.UserRegistry
+	postgresRepo    *repository.PostgresRepo
 }
 
 func NewUseCase(sr *repository.ScooterRegistry,
 	sapp entity.ScooterService, pg entity.PaymentGateway,
-	ur *repository.UserRegistry) *scooterUseCase {
+	ur *repository.UserRegistry, pgr *repository.PostgresRepo) *scooterUseCase {
 	return &scooterUseCase{
 		scooterRegistry: sr,
 		scooterApp:      sapp,
 		paymentGate:     pg,
 		userRegistry:    ur,
+		postgresRepo:    pgr,
 	}
 }
 

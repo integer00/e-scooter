@@ -9,8 +9,10 @@ import (
 )
 
 type Config struct {
-	Host string `env:"HOST" env-required:"true"`
-	Port string `env:"PORT" env-required:"true"`
+	Host        string `env:"HOST" env-required:"true"`
+	Port        string `env:"PORT" env-required:"true"`
+	PG_POOL_MAX int    `env:"PG_POOL_MAX" `
+	PG_URL      string `env:"PG_URL" `
 }
 
 func NewConfig() *Config {
