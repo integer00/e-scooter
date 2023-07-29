@@ -42,6 +42,7 @@ func New(url string) (*Postgres, error) {
 		if err == nil {
 			break
 		}
+		defer pg.Pool.Close()
 
 		log.Printf("Postgres is trying to connect, attempts left: %d", pg.connAttempts)
 

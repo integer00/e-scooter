@@ -36,7 +36,7 @@ type UseCase interface {
 }
 
 type User struct {
-	// Id   string
+	Id   string
 	Name string
 }
 
@@ -51,14 +51,14 @@ type Message struct {
 }
 
 type Ride struct {
-	RideID      string
-	Scooter     Scooter
-	User        User
-	Date        string
-	Time        string
-	Status      string
-	FareCharged string
-	Distance    string
-	StartTime   string
-	StopTime    string
+	RideID  string  `db:"ride_id"`
+	Scooter Scooter `db:"scooter_id"`
+	User    User    `db:"user_id"`
+	// Date        string
+	// Time        string
+	Status string `db:"status"`
+	// FareCharged string
+	// Distance    string
+	// StartTime   string
+	// StopTime    string
 }

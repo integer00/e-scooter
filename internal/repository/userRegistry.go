@@ -1,8 +1,6 @@
 package repository
 
 import (
-	"errors"
-
 	"github.com/integer00/e-scooter/internal/entity"
 	log "github.com/sirupsen/logrus"
 )
@@ -17,20 +15,21 @@ func NewUserRegistry() *UserRegistry {
 	}
 }
 
-func (ur *UserRegistry) GetUserById(s string) (*entity.User, error) {
+func (ur *UserRegistry) GetUserById(s string) *entity.User {
 
 	for i := range ur.userRegistry {
 		if s == ur.userRegistry[i].Name {
 			log.Info("found user in registry")
-			return &ur.userRegistry[i], nil
+			return &ur.userRegistry[i]
 		}
 	}
 
-	return nil, errors.New("user is not found")
+	return nil
 
 }
 
 func (ur *UserRegistry) AddUser(s string) error {
+	log.Info("adding user to registry")
 	ur.userRegistry = append(ur.userRegistry, entity.User{
 		// Id:   "some",
 		Name: s,

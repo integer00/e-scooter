@@ -25,6 +25,7 @@ func NewRegistry() *ScooterRegistry {
 func (sr *ScooterRegistry) AddRide(ride entity.Ride) error {
 	log.Info("adding ride to rideHistory")
 	sr.rideHistory = append(sr.rideHistory, ride)
+	log.Info(sr.rideHistory)
 
 	return nil
 }

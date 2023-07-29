@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -37,27 +38,53 @@ var jwtkey = []byte("somesecretkey")
 
 func (suc scooterUseCase) UserLogin(name string) (string, error) {
 	log.Trace("usecase for userlogin")
+	var userToSign = name
+	ctx := context.Background() //timeout
 
-	//somesort of userregistry is needed
-	//check if user is there
-	user, _ := suc.userRegistry.GetUserById(name)
-	if user != nil {
-		s := suc.generateJWT(name)
-		log.Info(s)
+	log.Info(suc.postgresRepo.GetUsers(ctx))
+	log.Info(suc.postgresRepo.GetRides(ctx))
+
+	if user := suc.userRegistry.GetUserById(userToSign); user != nil {
+		s := suc.generateJWT(userToSign)
+
 		//token handling (check if exist, if valid)
 		//exit
 		return s, nil
+	} else { //creating user (from db)
+		//check db
+		log.Info("going for user to db")
+		query := "select name from users where name = '" + name + "'"
+		if dbUser, err := suc.postgresRepo.FindUserById(ctx, query); err == nil {
+			log.Info(dbUser)
+			log.Info("found user in db, adding to local registry")
+
+			err := suc.userRegistry.AddUser(dbUser)
+			if err != nil {
+				log.Error("failed to create user!")
+				return "", nil
+			}
+
+		} else {
+			log.Info("adding to db")
+			query := "insert into users (name) values ('" + name + "')"
+			err := suc.postgresRepo.AddUserById(ctx, query)
+			if err != nil {
+				log.Error(err)
+			}
+
+			er := suc.userRegistry.AddUser(name)
+			if er != nil {
+				log.Error("failed to create user!")
+				return "", nil
+			}
+		}
 	}
-	err := suc.userRegistry.AddUser(name)
-	if err != nil {
-		log.Error("failed to create user!")
-		return "", nil
-	}
-	s := suc.generateJWT(name)
-	log.Info(s)
+
+	s := suc.generateJWT(userToSign)
+	// log.Info(s)
+	return s, nil
 	//token handling (check if exist, if valid)
 	//exit
-	return s, nil
 }
 
 func (suc scooterUseCase) generateJWT(name string) string {
@@ -153,14 +180,16 @@ func (suc scooterUseCase) GetEndpoints() []byte {
 	return suc.scooterRegistry.GetScooters()
 }
 
-func (suc scooterUseCase) BookScooter(scooterID string, userName string) error {
+func (suc scooterUseCase) BookScooter(scooterID string, userID string) error {
 	log.Info("booking scooter...")
+	ctx := context.Background()
+
 	sco, err := suc.scooterRegistry.GetScooterById(scooterID)
 	if err != nil {
 		return errors.New("failed to get scooter by that id")
 	}
-	user, err := suc.userRegistry.GetUserById(userName)
-	if err != nil {
+	user := suc.userRegistry.GetUserById(userID)
+	if user == nil {
 		return errors.New("failed to get user by that id")
 	}
 
@@ -170,7 +199,7 @@ func (suc scooterUseCase) BookScooter(scooterID string, userName string) error {
 	//doing query to db
 	//adding record to rideHistory
 
-	s := entity.Ride{
+	ride := entity.Ride{
 		RideID:  uuid.String(),
 		Scooter: *sco,
 		User:    *user,
@@ -178,12 +207,16 @@ func (suc scooterUseCase) BookScooter(scooterID string, userName string) error {
 	}
 
 	//add ride to ride history
-	er := suc.scooterRegistry.AddRide(s)
-	if er != nil {
+	if err := suc.scooterRegistry.AddRide(ride); err != nil {
 		log.Error("failed to add ride to histry")
-
+		log.Error(err)
 	}
 
-	log.Infof("%+v\n", s)
+	//add to db
+	if err := suc.postgresRepo.AddRide(ctx, ride); err != nil {
+		log.Error("failed to add ride to db")
+		log.Error(err)
+	}
+
 	return nil
 }

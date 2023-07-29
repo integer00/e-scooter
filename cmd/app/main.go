@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"os"
 	"os/signal"
 	"syscall"
@@ -46,17 +45,6 @@ func Run() {
 	defer pg.Close()
 
 	pgRepo := repository.NewPostgresRepo(pg)
-
-	var id int
-	var name string
-	log.Info(id, name)
-
-	er := pg.Pool.QueryRow(context.Background(), "select * from users").Scan(&id, &name)
-	if er != nil {
-		log.Info(er)
-	}
-
-	log.Info(id, name)
 
 	scoUsecase := usecase.NewUseCase(scoRegistry, scoAPP, pgate, userRegistry, pgRepo)
 	scoController := http.NewScooterController(scoUsecase)
