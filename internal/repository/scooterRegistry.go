@@ -10,25 +10,33 @@ import (
 
 type ScooterRegistry struct {
 	// registry map[string]string
-	registry    []entity.Scooter
-	rideHistory []entity.Ride
+	registry []entity.Scooter
+	// rideHistory []entity.Ride //implement cache in v2
 }
 
 // TODO need interface for ScooterRegistry
 func NewRegistry() *ScooterRegistry {
 	return &ScooterRegistry{
-		registry:    []entity.Scooter{},
-		rideHistory: []entity.Ride{},
+		registry: []entity.Scooter{},
+		// rideHistory: []entity.Ride{},
 	}
 }
 
-func (sr *ScooterRegistry) AddRide(ride entity.Ride) error {
-	log.Info("adding ride to rideHistory")
-	sr.rideHistory = append(sr.rideHistory, ride)
-	log.Info(sr.rideHistory)
+// func (sr *ScooterRegistry) AddRide(ride entity.Ride) error {
+// 	log.Info("adding ride to rideHistory")
+// 	sr.rideHistory = append(sr.rideHistory, ride)
+// 	log.Info(sr.rideHistory)
 
-	return nil
-}
+// 	return nil
+// }
+
+// func (sr *ScooterRegistry) GetRideById(id string) error {
+// 	log.Info("adding ride to rideHistory")
+// 	sr.rideHistory = append(sr.rideHistory, ride)
+// 	log.Info(sr.rideHistory)
+
+// 	return nil
+// }
 
 func (sr *ScooterRegistry) RegisterScooter(scooter entity.Scooter) error {
 	log.Info("New registration!")

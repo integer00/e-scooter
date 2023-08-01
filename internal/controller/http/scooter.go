@@ -17,11 +17,6 @@ type ScoController struct {
 	context        context.Context
 }
 
-type contextHandler struct {
-	context context.Context
-	handler http.Handler
-}
-
 func NewScooterController(u entity.UseCase) entity.Controller {
 	return &ScoController{
 		scooterUseCase: u,
@@ -108,28 +103,6 @@ func (sc ScoController) registerEndpointHandler(w http.ResponseWriter, req *http
 
 }
 
-func (sc ScoController) bookScooterHandler(w http.ResponseWriter, req *http.Request) {
-	if req.Method != http.MethodPost {
-		http.Error(w, "Wrong method", http.StatusMethodNotAllowed)
-		return
-	}
-	log.Info("asking for booking")
-
-	msg := parseRequest(*req)
-	if msg == nil {
-		http.Error(w, "malformed json or empty payload", http.StatusBadRequest)
-		return
-	}
-	log.Info(msg)
-
-	err := sc.scooterUseCase.BookScooter("kappa_ride", "alice")
-	if err != nil {
-		log.Error(err)
-	}
-	//booked, have options to start or release
-
-}
-
 func (sc ScoController) getScootersHandler(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodGet {
 		http.Error(w, "Wrong method", http.StatusMethodNotAllowed)
@@ -144,6 +117,27 @@ func (sc ScoController) getScootersHandler(w http.ResponseWriter, req *http.Requ
 
 	w.WriteHeader(http.StatusOK)
 	w.Write(s)
+
+}
+func (sc ScoController) bookScooterHandler(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		http.Error(w, "Wrong method", http.StatusMethodNotAllowed)
+		return
+	}
+	log.Info("asking for booking")
+
+	msg := parseRequest(*req)
+	if msg == nil {
+		http.Error(w, "malformed json or empty payload", http.StatusBadRequest)
+		return
+	}
+	log.Info(msg)
+
+	err := sc.scooterUseCase.BookScooter(msg.ScooterId, msg.UserId)
+	if err != nil {
+		log.Error(err)
+	}
+	//booked, have options to start or release
 
 }
 
@@ -161,11 +155,10 @@ func (sc ScoController) startScooterHandler(w http.ResponseWriter, req *http.Req
 		return
 	}
 
-	err := sc.scooterUseCase.StartScooter(msg.Scooterid)
+	err := sc.scooterUseCase.StartScooter(msg.ScooterId, msg.UserId)
 	if err != nil {
-		log.Warn(err)
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(err.Error()))
+		log.Error(err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
 
 }
@@ -175,9 +168,6 @@ func (sc ScoController) stopScooterHandler(w http.ResponseWriter, req *http.Requ
 		return
 	}
 	log.Info("asking for stop")
-	//getting ride
-
-	// ride :=
 
 	msg := parseRequest(*req)
 	if msg == nil {
@@ -186,11 +176,11 @@ func (sc ScoController) stopScooterHandler(w http.ResponseWriter, req *http.Requ
 
 	}
 
-	err := sc.scooterUseCase.StopScooter(msg.Scooterid)
+	err := sc.scooterUseCase.StopScooter(msg.ScooterId, msg.UserId)
 	if err != nil {
-		log.Warn(err)
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(err.Error()))
+		log.Error(err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+
 	}
 }
 

@@ -40,7 +40,8 @@ func (sapp ScooterService) StopScooter(sc entity.Scooter) error {
 func (sapp ScooterService) start(sc entity.Scooter) error {
 	println("starting with" + sc.Address)
 
-	DoHTTPRequest("POST", []byte(sc.Id), "http://"+sc.Address+"/start")
+	res := DoHTTPRequest("POST", []byte(sc.Id), "http://"+sc.Address+"/start")
+	defer res.Body.Close()
 
 	return nil
 }
@@ -48,12 +49,13 @@ func (sapp ScooterService) start(sc entity.Scooter) error {
 func (sapp ScooterService) stop(sc entity.Scooter) error {
 	println("stopping with" + sc.Address)
 
-	DoHTTPRequest("POST", []byte(sc.Id), "http://"+sc.Address+"/stop")
+	res := DoHTTPRequest("POST", []byte(sc.Id), "http://"+sc.Address+"/stop")
+	defer res.Body.Close()
 
 	return nil
 }
 
-func DoHTTPRequest(method string, payload []byte, url string) http.Response {
+func DoHTTPRequest(method string, payload []byte, url string) *http.Response {
 
 	bodyReader := bytes.NewReader(payload)
 
@@ -66,5 +68,5 @@ func DoHTTPRequest(method string, payload []byte, url string) http.Response {
 		panic(err)
 	}
 
-	return *res
+	return res
 }

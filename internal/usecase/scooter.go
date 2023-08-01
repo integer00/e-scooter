@@ -41,9 +41,6 @@ func (suc scooterUseCase) UserLogin(name string) (string, error) {
 	var userToSign = name
 	ctx := context.Background() //timeout
 
-	log.Info(suc.postgresRepo.GetUsers(ctx))
-	log.Info(suc.postgresRepo.GetRides(ctx))
-
 	if user := suc.userRegistry.GetUserById(userToSign); user != nil {
 		s := suc.generateJWT(userToSign)
 
@@ -144,54 +141,26 @@ func (suc scooterUseCase) RegisterScooter(scooter *entity.Scooter) error {
 	return nil
 }
 
-func (suc scooterUseCase) StartScooter(s string) error {
-	log.Trace("usecase for starting scooter")
-	//handle all related things , charge user, start scooter
-	// validate and start has different context
-
-	sc, err := suc.scooterRegistry.GetScooterById(s)
-	if err != nil {
-		return err
-	}
-
-	suc.paymentGate.ChargeDeposit() //need action type(firstStart\finishRide)
-
-	suc.scooterApp.StartScooter(*sc)
-	return nil
-}
-
-func (suc scooterUseCase) StopScooter(s string) error {
-	log.Trace("usecase for stoping scooter")
-
-	sc, err := suc.scooterRegistry.GetScooterById(s)
-	if err != nil {
-		return err
-	}
-
-	suc.paymentGate.ChargeFair()
-
-	suc.scooterApp.StopScooter(*sc)
-	return nil
-}
-
 func (suc scooterUseCase) GetEndpoints() []byte {
 	log.Trace("usecase for getendpoints")
 
 	return suc.scooterRegistry.GetScooters()
 }
 
-func (suc scooterUseCase) BookScooter(scooterID string, userID string) error {
+func (suc scooterUseCase) BookScooter(scooterId string, userId string) error {
 	log.Info("booking scooter...")
 	ctx := context.Background()
 
-	sco, err := suc.scooterRegistry.GetScooterById(scooterID)
+	sco, err := suc.scooterRegistry.GetScooterById(scooterId)
 	if err != nil {
 		return errors.New("failed to get scooter by that id")
 	}
-	user := suc.userRegistry.GetUserById(userID)
+	user := suc.userRegistry.GetUserById(userId)
 	if user == nil {
 		return errors.New("failed to get user by that id")
 	}
+
+	//check if scooterId is already booked
 
 	uuid := uuid.New()
 
@@ -200,23 +169,97 @@ func (suc scooterUseCase) BookScooter(scooterID string, userID string) error {
 	//adding record to rideHistory
 
 	ride := entity.Ride{
-		RideID:  uuid.String(),
-		Scooter: *sco,
-		User:    *user,
-		Status:  "booking",
+		RideId:    uuid.String(),
+		ScooterId: sco.Id,
+		UserId:    user.Name,
+		Status:    "booking",
 	}
 
 	//add ride to ride history
-	if err := suc.scooterRegistry.AddRide(ride); err != nil {
-		log.Error("failed to add ride to histry")
-		log.Error(err)
-	}
+	// if err := suc.scooterRegistry.AddRide(ride); err != nil {
+	// 	log.Error("failed to add ride to histry")
+	// 	log.Error(err)
+	// }
 
 	//add to db
 	if err := suc.postgresRepo.AddRide(ctx, ride); err != nil {
 		log.Error("failed to add ride to db")
 		log.Error(err)
 	}
+	//scooter is gone from available pool
 
+	return nil
+}
+
+func (suc scooterUseCase) StartScooter(scooterId string, userId string) error {
+	log.Trace("usecase for starting scooter")
+	//handle all related things , charge user, start scooter
+	// validate and start has different context
+	ctx := context.Background()
+
+	scooter, err := suc.scooterRegistry.GetScooterById(scooterId)
+	if err != nil {
+		return err
+	}
+
+	sqls := fmt.Sprintf("select * from rides where user_id = '%s' and status != 'DONE'", userId)
+	rides, err := suc.postgresRepo.GetRides(ctx, sqls)
+	if err != nil {
+		log.Error(err)
+		return errors.New("no rides been founded")
+	}
+
+	log.Printf("%+v", rides)
+
+	suc.paymentGate.ChargeDeposit() //need action type(firstStart\finishRide)
+
+	suc.scooterApp.StartScooter(*scooter)
+
+	startTime := time.Now().Unix()
+
+	rides[0].StartTime = startTime
+	rides[0].Status = "RIDE_IN_PROGRESS"
+
+	sql := fmt.Sprintf("update rides set status = '%s', start_time = '%d' where ride_id = '%s'",
+		rides[0].Status, rides[0].StartTime, rides[0].RideId)
+	suc.postgresRepo.UpdateRide(ctx, sql)
+
+	return nil
+}
+
+func (suc scooterUseCase) StopScooter(scooterId string, userId string) error {
+	log.Trace("usecase for stoping scooter")
+
+	ctx := context.Background()
+
+	scooter, err := suc.scooterRegistry.GetScooterById(scooterId)
+	if err != nil {
+		return err
+	}
+	sqls := fmt.Sprintf("select * from rides where user_id = '%s' and status != 'DONE'", userId)
+	rides, err := suc.postgresRepo.GetRides(ctx, sqls)
+	if err != nil {
+		log.Error(err)
+		return errors.New("no rides been founded")
+	}
+
+	log.Printf("%+v", rides)
+
+	stopTime := time.Now().Unix()
+
+	fare := rides[0].StartTime - stopTime
+	log.Infof("fare: %d", fare)
+
+	suc.paymentGate.ChargeFair()
+
+	suc.scooterApp.StopScooter(*scooter)
+
+	rides[0].StopTime = stopTime
+	rides[0].Status = "DONE"
+
+	sql := fmt.Sprintf("update rides set status = '%s', stop_time = '%d' where ride_id = '%s'",
+		rides[0].Status, rides[0].StopTime, rides[0].RideId)
+
+	suc.postgresRepo.UpdateRide(ctx, sql)
 	return nil
 }

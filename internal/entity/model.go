@@ -25,14 +25,14 @@ type ScooterService interface {
 }
 
 type UseCase interface {
+	BookScooter(scooterID string, userID string) error
+	StartScooter(scooterID string, userID string) error
+	StopScooter(scooterID string, userID string) error
 	GetScooter(s string) string
-	StartScooter(s string) error
-	StopScooter(s string) error
 	GetEndpoints() []byte
 	RegisterScooter(s *Scooter) error
 	UserLogin(s string) (string, error)
 	ValidateJWT(s string) bool //remove
-	BookScooter(scooterID string, userID string) error
 }
 
 type User struct {
@@ -46,19 +46,19 @@ type Scooter struct {
 }
 
 type Message struct {
-	Userid    string `json:"userid"`
-	Scooterid string `json:"scooterid"`
+	UserId    string `json:"userid"`
+	ScooterId string `json:"scooterid"`
 }
 
 type Ride struct {
-	RideID  string  `db:"ride_id"`
-	Scooter Scooter `db:"scooter_id"`
-	User    User    `db:"user_id"`
+	RideId    string `db:"ride_id"`
+	ScooterId string `db:"scooter_id"`
+	UserId    string `db:"user_id"`
+	Status    string `db:"status"`
+	StartTime int64  `db:"start_time"`
+	StopTime  int64  `db:"stop_time"`
 	// Date        string
 	// Time        string
-	Status string `db:"status"`
 	// FareCharged string
 	// Distance    string
-	// StartTime   string
-	// StopTime    string
 }

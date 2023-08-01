@@ -42,16 +42,24 @@ func (pgr *PostgresRepo) GetUsers(ctx context.Context) ([]entity.User, error) {
 	return users, nil
 }
 
-func (pgr *PostgresRepo) GetRides(ctx context.Context) ([]entity.Ride, error) {
+func (pgr *PostgresRepo) GetRides(ctx context.Context, sql string) ([]entity.Ride, error) {
 
-	rows, err := pgr.db.Pool.Query(ctx, "select * from rides")
+	rows, err := pgr.db.Pool.Query(ctx, sql)
 	if err != nil {
+		log.Error(err)
 		return nil, err
 	}
 	rides, err := pgx.CollectRows(rows, pgx.RowToStructByName[entity.Ride])
 	if err != nil {
+		log.Error(err)
 		return nil, err
 	}
+	if len(rides) == 0 {
+		return nil, errors.New("No rides")
+	}
+	log.Info("here")
+	log.Info(rides)
+
 	return rides, nil
 }
 
@@ -71,9 +79,21 @@ func (pgr *PostgresRepo) FindUserById(ctx context.Context, s string) (string, er
 
 }
 
-func (pgr *PostgresRepo) AddUserById(ctx context.Context, s string) error {
+func (pgr *PostgresRepo) UpdateRide(ctx context.Context, sql string) error {
 
-	if res, err := pgr.db.Pool.Exec(ctx, s); err != nil {
+	log.Info(sql)
+	if res, err := pgr.db.Pool.Exec(ctx, sql); err != nil {
+		log.Error(res)
+		log.Error(err)
+		return err
+	}
+	return nil
+
+}
+
+func (pgr *PostgresRepo) AddUserById(ctx context.Context, sql string) error {
+
+	if res, err := pgr.db.Pool.Exec(ctx, sql); err != nil {
 		log.Error(res)
 		return err
 	}
@@ -81,18 +101,19 @@ func (pgr *PostgresRepo) AddUserById(ctx context.Context, s string) error {
 }
 
 func (pgr *PostgresRepo) AddRide(ctx context.Context, t entity.Ride) error {
-	// RideID      string
-	// Scooter     Scooter
-	// User        User
-	// Date        string
-	// Time        string
-	// Status      string
-	// FareCharged string
-	// Distance    string
-	// StartTime   string
-	// StopTime    string
+	// RideId    string `db:"ride_id"`
+	// ScooterId string `db:"scooter_id"`
+	// UserId    string `db:"user_id"`
+	// Status    string `db:"status"`
 
-	sql := fmt.Sprintf("insert into rides (ride_id, scooter_id, user_id, status) values ('%s','%s','%s','%s')", t.RideID, t.Scooter.Id, t.User.Name, t.Status)
+	// StartTime int64  `db:"start_time"`
+	// StopTime  int64  `db:"stop_time"`
+	// // Date        string
+	// // Time        string
+	// // FareCharged string
+	// // Distance    string
+
+	sql := fmt.Sprintf("insert into rides values ('%s','%s','%s','%s',1,1)", t.RideId, t.ScooterId, t.UserId, t.Status)
 	log.Info(sql)
 	if res, err := pgr.db.Pool.Exec(ctx, sql); err != nil {
 		log.Error(res)
