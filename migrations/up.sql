@@ -9,5 +9,6 @@ create table if not exists rides(
     user_id varchar (50) not null,
     status varchar (50),
     start_time int,
-    stop_time int
+    stop_time int,
+    fare_charged int
 );

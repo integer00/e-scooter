@@ -32,6 +32,8 @@ func (sc ScoController) NewMux() *http.ServeMux {
 	mux.HandleFunc("/bookscooter", sc.checkTokenMiddleware(sc.bookScooterHandler))
 	mux.HandleFunc("/start", sc.checkTokenMiddleware(sc.startScooterHandler))
 	mux.HandleFunc("/stop", sc.checkTokenMiddleware(sc.stopScooterHandler))
+	mux.HandleFunc("/history", sc.checkTokenMiddleware(sc.rideHistoryHandler))
+
 	return mux
 }
 
@@ -63,8 +65,9 @@ func (sc ScoController) loginHandler(w http.ResponseWriter, req *http.Request) {
 
 }
 
-func (sc *ScoController) checkTokenMiddleware(f http.HandlerFunc) http.HandlerFunc {
+type contextMessage struct{}
 
+func (sc *ScoController) checkTokenMiddleware(f http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		if req.Header["token"] != nil {
 			//verify
@@ -75,18 +78,25 @@ func (sc *ScoController) checkTokenMiddleware(f http.HandlerFunc) http.HandlerFu
 			//we have no cookie
 			http.Error(w, `{"status": "unauthorized"}`, http.StatusUnauthorized)
 			return
-
 		}
+
 		// log.Info(cookie.Value)
 
-		if !sc.scooterUseCase.ValidateJWT(cookie.Value) {
+		claims, valid := sc.scooterUseCase.ValidateJWT(cookie.Value)
+		if !valid {
 			http.Error(w, "cookie is invalid", http.StatusBadRequest)
 			return
 		}
 
-		f(w, req)
-	}
+		// should be good after, enhancing context
 
+		// add proper set\get for this
+		username := claims["user"].(string)
+
+		ctx := context.WithValue(req.Context(), &contextMessage{}, username)
+
+		f(w, req.WithContext(ctx))
+	}
 }
 
 func (sc ScoController) registerEndpointHandler(w http.ResponseWriter, req *http.Request) {
@@ -182,6 +192,25 @@ func (sc ScoController) stopScooterHandler(w http.ResponseWriter, req *http.Requ
 		http.Error(w, err.Error(), http.StatusBadRequest)
 
 	}
+}
+
+func (sc ScoController) rideHistoryHandler(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		http.Error(w, "Wrong method", http.StatusMethodNotAllowed)
+		return
+	}
+	log.Info("asking for history")
+
+	log.Info(req.Context())
+
+	username := req.Context().Value(&contextMessage{}).(string)
+
+	log.Info("username: ", username)
+
+	sc.scooterUseCase.RideHistory(username)
+
+	w.WriteHeader(http.StatusOK)
+
 }
 
 func parseRequest(req http.Request) *entity.Message {

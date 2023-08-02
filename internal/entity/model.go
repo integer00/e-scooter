@@ -2,6 +2,8 @@ package entity
 
 import (
 	"net/http"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type Controller interface {
@@ -25,14 +27,15 @@ type ScooterService interface {
 }
 
 type UseCase interface {
-	BookScooter(scooterID string, userID string) error
-	StartScooter(scooterID string, userID string) error
-	StopScooter(scooterID string, userID string) error
+	BookScooter(scooterId string, userId string) error
+	StartScooter(scooterId string, userId string) error
+	StopScooter(scooterId string, userId string) error
+	RideHistory(userId string)
 	GetScooter(s string) string
 	GetEndpoints() []byte
 	RegisterScooter(s *Scooter) error
 	UserLogin(s string) (string, error)
-	ValidateJWT(s string) bool //remove
+	ValidateJWT(s string) (jwt.MapClaims, bool) //remove
 }
 
 type User struct {
@@ -51,14 +54,12 @@ type Message struct {
 }
 
 type Ride struct {
-	RideId    string `db:"ride_id"`
-	ScooterId string `db:"scooter_id"`
-	UserId    string `db:"user_id"`
-	Status    string `db:"status"`
-	StartTime int64  `db:"start_time"`
-	StopTime  int64  `db:"stop_time"`
-	// Date        string
-	// Time        string
-	// FareCharged string
+	RideId      string `db:"ride_id"`
+	ScooterId   string `db:"scooter_id"`
+	UserId      string `db:"user_id"`
+	Status      string `db:"status"`
+	StartTime   *int64 `db:"start_time"`
+	StopTime    *int64 `db:"stop_time"`
+	FareCharged *int   `db:"fare_charged"`
 	// Distance    string
 }

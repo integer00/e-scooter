@@ -41,33 +41,75 @@ func (pgr *PostgresRepo) GetUsers(ctx context.Context) ([]entity.User, error) {
 	}
 	return users, nil
 }
+func (pgr *PostgresRepo) GetRides(ctx context.Context) (*[]entity.Ride, error) {
 
-func (pgr *PostgresRepo) GetRides(ctx context.Context, sql string) ([]entity.Ride, error) {
-
+	sql := "select * from rides"
 	rows, err := pgr.db.Pool.Query(ctx, sql)
 	if err != nil {
 		log.Error(err)
 		return nil, err
 	}
 	rides, err := pgx.CollectRows(rows, pgx.RowToStructByName[entity.Ride])
+
 	if err != nil {
 		log.Error(err)
 		return nil, err
 	}
 	if len(rides) == 0 {
-		return nil, errors.New("No rides")
+		return nil, errors.New("no rides")
 	}
-	log.Info("here")
 	log.Info(rides)
 
-	return rides, nil
+	return &rides, nil
 }
 
-func (pgr *PostgresRepo) FindUserById(ctx context.Context, s string) (string, error) {
+func (pgr *PostgresRepo) GetRidesById(ctx context.Context, userId string) (*[]entity.Ride, error) {
+
+	sql := fmt.Sprintf("select * from rides where user_id = '%s' and status = 'DONE'", userId)
+	rows, err := pgr.db.Pool.Query(ctx, sql)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+	rides, err := pgx.CollectRows(rows, pgx.RowToStructByName[entity.Ride])
+
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+	if len(rides) == 0 {
+		return nil, errors.New("no rides")
+	}
+	log.Info(rides)
+
+	return &rides, nil
+}
+
+func (pgr *PostgresRepo) GetActiveRide(ctx context.Context) (*entity.Ride, error) {
+
+	sql := "select * from rides where status != 'DONE'"
+	rows, err := pgr.db.Pool.Query(ctx, sql)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+	ride, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[entity.Ride])
+
+	if err != nil {
+		log.Info("here we break")
+		log.Error(err)
+		return nil, err
+	}
+	log.Info(ride)
+
+	return &ride, nil
+}
+
+func (pgr *PostgresRepo) GetUserById(ctx context.Context, sql string) (string, error) {
 
 	res := ""
 
-	if err := pgr.db.Pool.QueryRow(ctx, s).Scan(&res); err == nil {
+	if err := pgr.db.Pool.QueryRow(ctx, sql).Scan(&res); err == nil {
 		return res, nil
 	} else {
 		if err == pgx.ErrNoRows {
@@ -77,6 +119,26 @@ func (pgr *PostgresRepo) FindUserById(ctx context.Context, s string) (string, er
 		return "", errors.New("something else")
 	}
 
+}
+
+func (pgr *PostgresRepo) AddUser(ctx context.Context, sql string) error {
+
+	if res, err := pgr.db.Pool.Exec(ctx, sql); err != nil {
+		log.Error(res)
+		return err
+	}
+	return nil
+}
+
+func (pgr *PostgresRepo) AddRide(ctx context.Context, t entity.Ride) error {
+
+	sql := fmt.Sprintf("insert into rides values ('%s','%s','%s','%s')", t.RideId, t.ScooterId, t.UserId, t.Status)
+	log.Info(sql)
+	if res, err := pgr.db.Pool.Exec(ctx, sql); err != nil {
+		log.Error(res)
+		return err
+	}
+	return nil
 }
 
 func (pgr *PostgresRepo) UpdateRide(ctx context.Context, sql string) error {
@@ -89,35 +151,4 @@ func (pgr *PostgresRepo) UpdateRide(ctx context.Context, sql string) error {
 	}
 	return nil
 
-}
-
-func (pgr *PostgresRepo) AddUserById(ctx context.Context, sql string) error {
-
-	if res, err := pgr.db.Pool.Exec(ctx, sql); err != nil {
-		log.Error(res)
-		return err
-	}
-	return nil
-}
-
-func (pgr *PostgresRepo) AddRide(ctx context.Context, t entity.Ride) error {
-	// RideId    string `db:"ride_id"`
-	// ScooterId string `db:"scooter_id"`
-	// UserId    string `db:"user_id"`
-	// Status    string `db:"status"`
-
-	// StartTime int64  `db:"start_time"`
-	// StopTime  int64  `db:"stop_time"`
-	// // Date        string
-	// // Time        string
-	// // FareCharged string
-	// // Distance    string
-
-	sql := fmt.Sprintf("insert into rides values ('%s','%s','%s','%s',1,1)", t.RideId, t.ScooterId, t.UserId, t.Status)
-	log.Info(sql)
-	if res, err := pgr.db.Pool.Exec(ctx, sql); err != nil {
-		log.Error(res)
-		return err
-	}
-	return nil
 }

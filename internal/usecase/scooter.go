@@ -41,6 +41,8 @@ func (suc scooterUseCase) UserLogin(name string) (string, error) {
 	var userToSign = name
 	ctx := context.Background() //timeout
 
+	log.Info(suc.postgresRepo.GetRides(context.Background()))
+
 	if user := suc.userRegistry.GetUserById(userToSign); user != nil {
 		s := suc.generateJWT(userToSign)
 
@@ -51,7 +53,7 @@ func (suc scooterUseCase) UserLogin(name string) (string, error) {
 		//check db
 		log.Info("going for user to db")
 		query := "select name from users where name = '" + name + "'"
-		if dbUser, err := suc.postgresRepo.FindUserById(ctx, query); err == nil {
+		if dbUser, err := suc.postgresRepo.GetUserById(ctx, query); err == nil {
 			log.Info(dbUser)
 			log.Info("found user in db, adding to local registry")
 
@@ -64,7 +66,7 @@ func (suc scooterUseCase) UserLogin(name string) (string, error) {
 		} else {
 			log.Info("adding to db")
 			query := "insert into users (name) values ('" + name + "')"
-			err := suc.postgresRepo.AddUserById(ctx, query)
+			err := suc.postgresRepo.AddUser(ctx, query)
 			if err != nil {
 				log.Error(err)
 			}
@@ -100,7 +102,7 @@ func (suc scooterUseCase) generateJWT(name string) string {
 
 	return tokenString
 }
-func (suc scooterUseCase) ValidateJWT(s string) bool {
+func (suc scooterUseCase) ValidateJWT(s string) (jwt.MapClaims, bool) {
 	//validate token and claims
 	//check expiration
 
@@ -110,19 +112,20 @@ func (suc scooterUseCase) ValidateJWT(s string) bool {
 	if err != nil {
 		log.Error("parse error")
 		log.Error(err)
-		return false
+		return nil, false
 	}
 
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if ok && token.Valid {
 		log.Info(claims)
 		log.Info(claims["user"], claims["exp"])
 	} else {
 		log.Error("error with claims")
 		fmt.Println(err)
-		return false
+		return nil, false
 	}
 
-	return true
+	return claims, true
 
 }
 
@@ -143,6 +146,9 @@ func (suc scooterUseCase) RegisterScooter(scooter *entity.Scooter) error {
 
 func (suc scooterUseCase) GetEndpoints() []byte {
 	log.Trace("usecase for getendpoints")
+	rides, _ := suc.postgresRepo.GetRides(context.Background())
+
+	log.Printf("%+v", rides)
 
 	return suc.scooterRegistry.GetScooters()
 }
@@ -174,6 +180,7 @@ func (suc scooterUseCase) BookScooter(scooterId string, userId string) error {
 		UserId:    user.Name,
 		Status:    "booking",
 	}
+	log.Printf("%+v", ride)
 
 	//add ride to ride history
 	// if err := suc.scooterRegistry.AddRide(ride); err != nil {
@@ -202,12 +209,12 @@ func (suc scooterUseCase) StartScooter(scooterId string, userId string) error {
 		return err
 	}
 
-	sqls := fmt.Sprintf("select * from rides where user_id = '%s' and status != 'DONE'", userId)
-	rides, err := suc.postgresRepo.GetRides(ctx, sqls)
+	rides, err := suc.postgresRepo.GetActiveRide(ctx)
 	if err != nil {
 		log.Error(err)
 		return errors.New("no rides been founded")
 	}
+	log.Info("got ride ", rides.RideId)
 
 	log.Printf("%+v", rides)
 
@@ -215,14 +222,16 @@ func (suc scooterUseCase) StartScooter(scooterId string, userId string) error {
 
 	suc.scooterApp.StartScooter(*scooter)
 
-	startTime := time.Now().Unix()
+	timeStart := time.Now().Unix()
 
-	rides[0].StartTime = startTime
-	rides[0].Status = "RIDE_IN_PROGRESS"
+	rides.Status = "RIDE_IN_PROGRESS"
+	rides.StartTime = &timeStart
 
 	sql := fmt.Sprintf("update rides set status = '%s', start_time = '%d' where ride_id = '%s'",
-		rides[0].Status, rides[0].StartTime, rides[0].RideId)
+		rides.Status, *rides.StartTime, rides.RideId)
 	suc.postgresRepo.UpdateRide(ctx, sql)
+
+	log.Infof("%+v\n", rides)
 
 	return nil
 }
@@ -236,8 +245,7 @@ func (suc scooterUseCase) StopScooter(scooterId string, userId string) error {
 	if err != nil {
 		return err
 	}
-	sqls := fmt.Sprintf("select * from rides where user_id = '%s' and status != 'DONE'", userId)
-	rides, err := suc.postgresRepo.GetRides(ctx, sqls)
+	rides, err := suc.postgresRepo.GetActiveRide(ctx)
 	if err != nil {
 		log.Error(err)
 		return errors.New("no rides been founded")
@@ -245,21 +253,33 @@ func (suc scooterUseCase) StopScooter(scooterId string, userId string) error {
 
 	log.Printf("%+v", rides)
 
-	stopTime := time.Now().Unix()
-
-	fare := rides[0].StartTime - stopTime
-	log.Infof("fare: %d", fare)
-
 	suc.paymentGate.ChargeFair()
+	fare := 5 //get real fare
 
 	suc.scooterApp.StopScooter(*scooter)
 
-	rides[0].StopTime = stopTime
-	rides[0].Status = "DONE"
+	timeStop := time.Now().Unix()
 
-	sql := fmt.Sprintf("update rides set status = '%s', stop_time = '%d' where ride_id = '%s'",
-		rides[0].Status, rides[0].StopTime, rides[0].RideId)
+	// rides.StopTime = stopTime
+	rides.Status = "DONE"
+	rides.StopTime = &timeStop
+	rides.FareCharged = &fare
+
+	sql := fmt.Sprintf("update rides set status = '%s', stop_time = '%d', fare_charged = '%d' where ride_id = '%s'",
+		rides.Status, *rides.StopTime, *rides.FareCharged, rides.RideId)
 
 	suc.postgresRepo.UpdateRide(ctx, sql)
 	return nil
+}
+
+func (sco scooterUseCase) RideHistory(userId string) {
+	log.Trace("usecase for ride history")
+	ctx := context.Background()
+
+	rides, err := sco.postgresRepo.GetRidesById(ctx, userId)
+	if err != nil {
+	}
+
+	log.Info(rides)
+
 }
