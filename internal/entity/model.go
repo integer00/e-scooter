@@ -1,15 +1,5 @@
 package entity
 
-import (
-	"net/http"
-
-	"github.com/golang-jwt/jwt/v5"
-)
-
-type Controller interface {
-	NewMux() *http.ServeMux
-}
-
 // type Registry interface {
 // 	// GetScooter(sc interface{})
 // 	RegisterScooter(r Registry, sc *Scooter) error
@@ -26,18 +16,6 @@ type ScooterService interface {
 	StopScooter(sc Scooter) error
 }
 
-type UseCase interface {
-	BookScooter(scooterId string, userId string) error
-	StartScooter(scooterId string, userId string) error
-	StopScooter(scooterId string, userId string) error
-	RideHistory(userId string)
-	GetScooter(s string) string
-	GetEndpoints() []byte
-	RegisterScooter(s *Scooter) error
-	UserLogin(s string) (string, error)
-	ValidateJWT(s string) (jwt.MapClaims, bool) //remove
-}
-
 type User struct {
 	Id   string
 	Name string
@@ -49,8 +27,8 @@ type Scooter struct {
 }
 
 type Message struct {
-	UserId    string `json:"userid"`
-	ScooterId string `json:"scooterid"`
+	UserId    string `json:"userid" validate:"required"`
+	ScooterId string `json:"scooterid" validate:"required"`
 }
 
 type Ride struct {

@@ -14,6 +14,18 @@ import (
 	"github.com/integer00/e-scooter/internal/repository"
 )
 
+type UseCase interface {
+	BookScooter(scooterId string, userId string) error
+	StartScooter(scooterId string, userId string) error
+	StopScooter(scooterId string, userId string) error
+	RideHistory(userId string)
+	GetScooter(s string) string
+	GetEndpoints() []byte
+	RegisterScooter(s *entity.Scooter) error
+	UserLogin(s string) (string, error)
+	ValidateJWT(s string) (jwt.MapClaims, bool) //remove
+}
+
 type scooterUseCase struct {
 	scooterRegistry *repository.ScooterRegistry
 	scooterApp      entity.ScooterService
@@ -24,7 +36,7 @@ type scooterUseCase struct {
 
 func NewUseCase(sr *repository.ScooterRegistry,
 	sapp entity.ScooterService, pg entity.PaymentGateway,
-	ur *repository.UserRegistry, pgr *repository.PostgresRepo) *scooterUseCase {
+	ur *repository.UserRegistry, pgr *repository.PostgresRepo) UseCase {
 	return &scooterUseCase{
 		scooterRegistry: sr,
 		scooterApp:      sapp,

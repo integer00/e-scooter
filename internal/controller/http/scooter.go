@@ -3,6 +3,8 @@ package http
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"time"
 
@@ -10,17 +12,24 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/integer00/e-scooter/internal/entity"
+	"github.com/integer00/e-scooter/internal/usecase"
 )
 
-type ScoController struct {
-	scooterUseCase entity.UseCase
-	context        context.Context
+type Controller interface {
+	NewMux() *http.ServeMux
 }
 
-func NewScooterController(u entity.UseCase) entity.Controller {
+var ErrMalformedJsonPayload = errors.New("malformed json or empty payload")
+
+type contextMessage struct{}
+
+type ScoController struct {
+	scooterUseCase usecase.UseCase
+}
+
+func NewScooterController(u usecase.UseCase) Controller {
 	return &ScoController{
 		scooterUseCase: u,
-		context:        context.Background(),
 	}
 }
 
@@ -65,8 +74,6 @@ func (sc ScoController) loginHandler(w http.ResponseWriter, req *http.Request) {
 
 }
 
-type contextMessage struct{}
-
 func (sc *ScoController) checkTokenMiddleware(f http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		if req.Header["token"] != nil {
@@ -105,9 +112,15 @@ func (sc ScoController) registerEndpointHandler(w http.ResponseWriter, req *http
 		return
 	}
 	log.Info("asking for registration")
-	p := parseScooter(*req)
+	p, err := parseScooter(req.Body)
+	if err != nil {
+		http.Error(w, ErrMalformedJsonPayload.Error(), http.StatusBadRequest)
+		return
+	}
 
-	sc.scooterUseCase.RegisterScooter(p)
+	if ok := sc.scooterUseCase.RegisterScooter(p); ok != nil {
+		log.Error(err)
+	}
 
 	w.WriteHeader(http.StatusOK)
 
@@ -136,15 +149,14 @@ func (sc ScoController) bookScooterHandler(w http.ResponseWriter, req *http.Requ
 	}
 	log.Info("asking for booking")
 
-	msg := parseRequest(*req)
-	if msg == nil {
-		http.Error(w, "malformed json or empty payload", http.StatusBadRequest)
+	msg, err := sc.parseRequest(req.Body)
+	if err != nil {
+		http.Error(w, ErrMalformedJsonPayload.Error(), http.StatusBadRequest)
 		return
 	}
 	log.Info(msg)
 
-	err := sc.scooterUseCase.BookScooter(msg.ScooterId, msg.UserId)
-	if err != nil {
+	if ok := sc.scooterUseCase.BookScooter(msg.ScooterId, msg.UserId); ok != nil {
 		log.Error(err)
 	}
 	//booked, have options to start or release
@@ -159,14 +171,13 @@ func (sc ScoController) startScooterHandler(w http.ResponseWriter, req *http.Req
 	}
 	log.Info("asking for start")
 
-	msg := parseRequest(*req)
-	if msg == nil {
-		http.Error(w, "malformed json or empty payload", http.StatusBadRequest)
+	msg, err := sc.parseRequest(req.Body)
+	if err != nil {
+		http.Error(w, ErrMalformedJsonPayload.Error(), http.StatusBadRequest)
 		return
 	}
 
-	err := sc.scooterUseCase.StartScooter(msg.ScooterId, msg.UserId)
-	if err != nil {
+	if ok := sc.scooterUseCase.StartScooter(msg.ScooterId, msg.UserId); ok != nil {
 		log.Error(err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
@@ -179,18 +190,15 @@ func (sc ScoController) stopScooterHandler(w http.ResponseWriter, req *http.Requ
 	}
 	log.Info("asking for stop")
 
-	msg := parseRequest(*req)
-	if msg == nil {
-		http.Error(w, "malformed json or empty payload", http.StatusBadRequest)
+	msg, err := sc.parseRequest(req.Body)
+	if err != nil {
+		http.Error(w, ErrMalformedJsonPayload.Error(), http.StatusBadRequest)
 		return
-
 	}
 
-	err := sc.scooterUseCase.StopScooter(msg.ScooterId, msg.UserId)
-	if err != nil {
+	if ok := sc.scooterUseCase.StopScooter(msg.ScooterId, msg.UserId); ok != nil {
 		log.Error(err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
-
 	}
 }
 
@@ -213,34 +221,34 @@ func (sc ScoController) rideHistoryHandler(w http.ResponseWriter, req *http.Requ
 
 }
 
-func parseRequest(req http.Request) *entity.Message {
+func (sc ScoController) parseRequest(req io.Reader) (*entity.Message, error) {
 
 	var s = new(entity.Message)
+	validate := validator.New()
 
-	// validate := validator.New()
-
-	err := json.NewDecoder(req.Body).Decode(&s)
+	err := json.NewDecoder(req).Decode(&s)
 	if err != nil {
-		return nil
+		return nil, ErrMalformedJsonPayload
 	}
-	// if err := validate.Struct(s); err != nil {
-	// 	log.Warn(err)
-	// }
-	return s
+	if err := validate.Struct(s); err != nil {
+		return nil, ErrMalformedJsonPayload
+	}
+
+	return s, nil
 }
 
-func parseScooter(req http.Request) *entity.Scooter {
+func parseScooter(req io.Reader) (*entity.Scooter, error) {
 
 	var s = new(entity.Scooter)
 
 	validate := validator.New()
 
-	err := json.NewDecoder(req.Body).Decode(&s)
+	err := json.NewDecoder(req).Decode(&s)
 	if err != nil {
-		return nil
+		return nil, nil
 	}
 	if err := validate.Struct(s); err != nil {
 		log.Warn(err)
 	}
-	return s
+	return s, nil
 }

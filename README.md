@@ -1,4 +1,6 @@
 # e-scooter
+[![Go Report Card](https://goreportcard.com/badge/github.com/integer00/e-scooter)](https://goreportcard.com/report/github.com/integer00/e-scooter)
+
 
 this is a demo project
 
