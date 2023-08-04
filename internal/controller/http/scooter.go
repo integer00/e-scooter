@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
 
 	"github.com/go-playground/validator"
+	"github.com/golang-jwt/jwt/v5"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/integer00/e-scooter/internal/entity"
@@ -20,8 +22,11 @@ type Controller interface {
 }
 
 var ErrMalformedJsonPayload = errors.New("malformed json or empty payload")
+var ErrInvalidCookie = errors.New("cookie is invalid")
 
 type contextMessage struct{}
+
+var jwtkey = []byte("somesecretkey")
 
 type ScoController struct {
 	scooterUseCase usecase.UseCase
@@ -56,7 +61,8 @@ func (sc ScoController) loginHandler(w http.ResponseWriter, req *http.Request) {
 	//get post form for user input
 	// name := randomstring.HumanFriendlyEnglishString(6)
 
-	s, _ := sc.scooterUseCase.UserLogin("alice")
+	user, _ := sc.scooterUseCase.UserLogin("alice")
+	s := generateJWT(user)
 
 	cookie := http.Cookie{
 		Name:    "token",
@@ -89,9 +95,9 @@ func (sc *ScoController) checkTokenMiddleware(f http.HandlerFunc) http.HandlerFu
 
 		// log.Info(cookie.Value)
 
-		claims, valid := sc.scooterUseCase.ValidateJWT(cookie.Value)
+		claims, valid := validateJWT(cookie.Value)
 		if !valid {
-			http.Error(w, "cookie is invalid", http.StatusBadRequest)
+			http.Error(w, ErrInvalidCookie.Error(), http.StatusBadRequest)
 			return
 		}
 
@@ -251,4 +257,47 @@ func parseScooter(req io.Reader) (*entity.Scooter, error) {
 		log.Warn(err)
 	}
 	return s, nil
+}
+
+func generateJWT(name string) string {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS512, jwt.MapClaims{
+		"exp":  time.Now().Add(60 * time.Minute).Unix(),
+		"user": name,
+	})
+	//todo proper claims map
+
+	tokenString, err := token.SignedString(jwtkey)
+	if err != nil {
+		log.Error("failed to sign key")
+		log.Error(err)
+	}
+	log.Info("signing key...")
+
+	return tokenString
+}
+func validateJWT(s string) (jwt.MapClaims, bool) {
+	//validate token and claims
+	//check expiration
+
+	token, err := jwt.Parse(s, func(token *jwt.Token) (interface{}, error) {
+		return jwtkey, nil
+	})
+	if err != nil {
+		log.Error("parse error")
+		log.Error(err)
+		return nil, false
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if ok && token.Valid {
+		log.Info(claims)
+		log.Info(claims["user"], claims["exp"])
+	} else {
+		log.Error("error with claims")
+		fmt.Println(err)
+		return nil, false
+	}
+
+	return claims, true
+
 }

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 
@@ -23,7 +22,6 @@ type UseCase interface {
 	GetEndpoints() []byte
 	RegisterScooter(s *entity.Scooter) error
 	UserLogin(s string) (string, error)
-	ValidateJWT(s string) (jwt.MapClaims, bool) //remove
 }
 
 type scooterUseCase struct {
@@ -46,21 +44,14 @@ func NewUseCase(sr *repository.ScooterRegistry,
 	}
 }
 
-var jwtkey = []byte("somesecretkey")
-
 func (suc scooterUseCase) UserLogin(name string) (string, error) {
 	log.Trace("usecase for userlogin")
-	var userToSign = name
 	ctx := context.Background() //timeout
 
 	log.Info(suc.postgresRepo.GetRides(context.Background()))
 
-	if user := suc.userRegistry.GetUserById(userToSign); user != nil {
-		s := suc.generateJWT(userToSign)
-
-		//token handling (check if exist, if valid)
-		//exit
-		return s, nil
+	if user := suc.userRegistry.GetUserById(name); user != nil {
+		return name, nil
 	} else { //creating user (from db)
 		//check db
 		log.Info("going for user to db")
@@ -91,54 +82,7 @@ func (suc scooterUseCase) UserLogin(name string) (string, error) {
 		}
 	}
 
-	s := suc.generateJWT(userToSign)
-	// log.Info(s)
-	return s, nil
-	//token handling (check if exist, if valid)
-	//exit
-}
-
-func (suc scooterUseCase) generateJWT(name string) string {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS512, jwt.MapClaims{
-		"exp":  time.Now().Add(60 * time.Minute).Unix(),
-		"user": name,
-	})
-	//todo proper claims map
-
-	tokenString, err := token.SignedString(jwtkey)
-	if err != nil {
-		log.Error("failed to sign key")
-		log.Error(err)
-	}
-	log.Info("signing key...")
-
-	return tokenString
-}
-func (suc scooterUseCase) ValidateJWT(s string) (jwt.MapClaims, bool) {
-	//validate token and claims
-	//check expiration
-
-	token, err := jwt.Parse(s, func(token *jwt.Token) (interface{}, error) {
-		return jwtkey, nil
-	})
-	if err != nil {
-		log.Error("parse error")
-		log.Error(err)
-		return nil, false
-	}
-
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if ok && token.Valid {
-		log.Info(claims)
-		log.Info(claims["user"], claims["exp"])
-	} else {
-		log.Error("error with claims")
-		fmt.Println(err)
-		return nil, false
-	}
-
-	return claims, true
-
+	return name, nil
 }
 
 func (suc scooterUseCase) GetScooter(s string) string {
