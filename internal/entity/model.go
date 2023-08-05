@@ -18,12 +18,13 @@ type ScooterService interface {
 
 type User struct {
 	Id   string
-	Name string
+	Name string `json:"userid"`
 }
 
 type Scooter struct {
-	Id      string `json:"id" validate:"required"`
-	Address string `json:"address"`
+	Id        string `json:"id" validate:"required"`
+	Address   string `json:"address"`
+	Available bool   `json:"available"`
 }
 
 type Message struct {

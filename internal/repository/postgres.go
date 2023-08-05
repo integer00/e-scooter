@@ -96,11 +96,9 @@ func (pgr *PostgresRepo) GetActiveRide(ctx context.Context) (*entity.Ride, error
 	ride, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[entity.Ride])
 
 	if err != nil {
-		log.Info("here we break")
-		log.Error(err)
+		log.Warn(err)
 		return nil, err
 	}
-	log.Info(ride)
 
 	return &ride, nil
 }

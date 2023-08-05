@@ -48,7 +48,7 @@ func (suc scooterUseCase) UserLogin(name string) (string, error) {
 	log.Trace("usecase for userlogin")
 	ctx := context.Background() //timeout
 
-	log.Info(suc.postgresRepo.GetRides(context.Background()))
+	// log.Info(suc.postgresRepo.GetRides(context.Background()))
 
 	if user := suc.userRegistry.GetUserById(name); user != nil {
 		return name, nil
@@ -95,16 +95,19 @@ func (suc scooterUseCase) GetScooter(s string) string {
 func (suc scooterUseCase) RegisterScooter(scooter *entity.Scooter) error {
 	log.Trace("usecase for scooterRegistry")
 
-	suc.scooterRegistry.RegisterScooter(*scooter)
+	err := suc.scooterRegistry.RegisterScooter(*scooter)
+	if err != nil {
+		log.Error(err)
+	}
 
 	return nil
 }
 
 func (suc scooterUseCase) GetEndpoints() []byte {
 	log.Trace("usecase for getendpoints")
-	rides, _ := suc.postgresRepo.GetRides(context.Background())
+	// rides, _ := suc.postgresRepo.GetRides(context.Background())
 
-	log.Printf("%+v", rides)
+	// log.Printf("%+v", rides)
 
 	return suc.scooterRegistry.GetScooters()
 }
@@ -117,8 +120,14 @@ func (suc scooterUseCase) BookScooter(scooterId string, userId string) error {
 	if err != nil {
 		return errors.New("failed to get scooter by that id")
 	}
+
+	if !sco.Available {
+		return errors.New("requested scooter is not available")
+	}
+
 	user := suc.userRegistry.GetUserById(userId)
 	if user == nil {
+		log.Error("user not found")
 		return errors.New("failed to get user by that id")
 	}
 
@@ -137,6 +146,10 @@ func (suc scooterUseCase) BookScooter(scooterId string, userId string) error {
 		Status:    "booking",
 	}
 	log.Printf("%+v", ride)
+
+	// suc.scooterRegistry.SetStatus(*sco, false)
+
+	sco.Available = false
 
 	//add ride to ride history
 	// if err := suc.scooterRegistry.AddRide(ride); err != nil {
@@ -168,8 +181,13 @@ func (suc scooterUseCase) StartScooter(scooterId string, userId string) error {
 	rides, err := suc.postgresRepo.GetActiveRide(ctx)
 	if err != nil {
 		log.Error(err)
-		return errors.New("no rides been founded")
+		return errors.New("no rides been found")
 	}
+
+	if rides.UserId != userId {
+		return errors.New("asked from" + userId + " but booked for " + rides.UserId)
+	}
+
 	log.Info("got ride ", rides.RideId)
 
 	log.Printf("%+v", rides)
@@ -204,7 +222,11 @@ func (suc scooterUseCase) StopScooter(scooterId string, userId string) error {
 	rides, err := suc.postgresRepo.GetActiveRide(ctx)
 	if err != nil {
 		log.Error(err)
-		return errors.New("no rides been founded")
+		return errors.New("no rides been found")
+	}
+
+	if rides.UserId != userId {
+		return errors.New("asked from: " + userId + " but booked for: " + rides.UserId)
 	}
 
 	log.Printf("%+v", rides)
@@ -213,6 +235,9 @@ func (suc scooterUseCase) StopScooter(scooterId string, userId string) error {
 	fare := 5 //get real fare
 
 	suc.scooterApp.StopScooter(*scooter)
+
+	//releasing
+	scooter.Available = true
 
 	timeStop := time.Now().Unix()
 

@@ -22,25 +22,10 @@ func NewRegistry() *ScooterRegistry {
 	}
 }
 
-// func (sr *ScooterRegistry) AddRide(ride entity.Ride) error {
-// 	log.Info("adding ride to rideHistory")
-// 	sr.rideHistory = append(sr.rideHistory, ride)
-// 	log.Info(sr.rideHistory)
-
-// 	return nil
-// }
-
-// func (sr *ScooterRegistry) GetRideById(id string) error {
-// 	log.Info("adding ride to rideHistory")
-// 	sr.rideHistory = append(sr.rideHistory, ride)
-// 	log.Info(sr.rideHistory)
-
-// 	return nil
-// }
-
 func (sr *ScooterRegistry) RegisterScooter(scooter entity.Scooter) error {
 	log.Info("New registration!")
-	sr.registerScooter(scooter)
+	log.Info(scooter)
+	sr.registry = append(sr.registry, scooter)
 
 	return nil
 }
@@ -71,7 +56,9 @@ func (sr *ScooterRegistry) GetScooters() []byte {
 	s := []string{}
 
 	for i := range sr.registry {
-		s = append(s, sr.registry[i].Id)
+		if sr.registry[i].Available {
+			s = append(s, sr.registry[i].Id)
+		}
 	}
 
 	a, _ := json.Marshal(&endpoints{Id: s})
@@ -79,12 +66,4 @@ func (sr *ScooterRegistry) GetScooters() []byte {
 	log.Info("json: ", string(a))
 
 	return a
-}
-
-func (sr *ScooterRegistry) registerScooter(scooter entity.Scooter) {
-	log.Println("adding to registry...")
-
-	sr.registry = append(sr.registry, scooter)
-
-	log.Info(sr.registry)
 }

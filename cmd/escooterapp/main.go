@@ -38,7 +38,7 @@ func healthHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func bootstrap() {
-	jsonBody := []byte(`{"id": "kappa_ride", "address": "127.0.0.1:8081"}`)
+	jsonBody := []byte(`{"id": "kappa_ride", "address": "127.0.0.1:8081", "available": true}`)
 
 	for {
 		err := DoHTTPRequest("POST", jsonBody, SCOOTER_API)
@@ -62,6 +62,7 @@ func getRoutes() {
 }
 
 func DoHTTPRequest(method string, payload []byte, url string) error {
+	//fix check for status code returning
 
 	bodyReader := bytes.NewReader(payload)
 

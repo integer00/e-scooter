@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -52,7 +51,7 @@ func (sc ScoController) NewMux() *http.ServeMux {
 }
 
 func (sc ScoController) loginHandler(w http.ResponseWriter, req *http.Request) {
-	if req.Method != http.MethodGet {
+	if req.Method != http.MethodPost {
 		http.Error(w, "Wrong method", http.StatusMethodNotAllowed)
 		return
 	}
@@ -60,8 +59,15 @@ func (sc ScoController) loginHandler(w http.ResponseWriter, req *http.Request) {
 
 	//get post form for user input
 	// name := randomstring.HumanFriendlyEnglishString(6)
+	name := new(entity.User)
+	err := json.NewDecoder(req.Body).Decode(&name)
+	if err != nil {
+		log.Error("bad input")
+		http.Error(w, "bad input", http.StatusBadRequest)
+		return
+	}
 
-	user, _ := sc.scooterUseCase.UserLogin("alice")
+	user, _ := sc.scooterUseCase.UserLogin(name.Name)
 	s := generateJWT(user)
 
 	cookie := http.Cookie{
@@ -118,12 +124,13 @@ func (sc ScoController) registerEndpointHandler(w http.ResponseWriter, req *http
 		return
 	}
 	log.Info("asking for registration")
-	p, err := parseScooter(req.Body)
-	if err != nil {
+	p, err := sc.parseScooter(req.Body)
+	if err != nil || p == nil {
 		http.Error(w, ErrMalformedJsonPayload.Error(), http.StatusBadRequest)
 		return
 	}
 
+	log.Info(p)
 	if ok := sc.scooterUseCase.RegisterScooter(p); ok != nil {
 		log.Error(err)
 	}
@@ -143,7 +150,6 @@ func (sc ScoController) getScootersHandler(w http.ResponseWriter, req *http.Requ
 
 	s := sc.scooterUseCase.GetEndpoints()
 	w.Header().Add("Content-Type", "application/json")
-
 	w.WriteHeader(http.StatusOK)
 	w.Write(s)
 
@@ -163,9 +169,12 @@ func (sc ScoController) bookScooterHandler(w http.ResponseWriter, req *http.Requ
 	log.Info(msg)
 
 	if ok := sc.scooterUseCase.BookScooter(msg.ScooterId, msg.UserId); ok != nil {
-		log.Error(err)
+		log.Error(ok)
+		http.Error(w, ok.Error(), http.StatusBadRequest)
 	}
 	//booked, have options to start or release
+
+	//need common responsewriter in json
 
 }
 
@@ -184,8 +193,7 @@ func (sc ScoController) startScooterHandler(w http.ResponseWriter, req *http.Req
 	}
 
 	if ok := sc.scooterUseCase.StartScooter(msg.ScooterId, msg.UserId); ok != nil {
-		log.Error(err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, ok.Error(), http.StatusBadRequest)
 	}
 
 }
@@ -203,8 +211,7 @@ func (sc ScoController) stopScooterHandler(w http.ResponseWriter, req *http.Requ
 	}
 
 	if ok := sc.scooterUseCase.StopScooter(msg.ScooterId, msg.UserId); ok != nil {
-		log.Error(err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, ok.Error(), http.StatusBadRequest)
 	}
 }
 
@@ -243,7 +250,7 @@ func (sc ScoController) parseRequest(req io.Reader) (*entity.Message, error) {
 	return s, nil
 }
 
-func parseScooter(req io.Reader) (*entity.Scooter, error) {
+func (sc ScoController) parseScooter(req io.Reader) (*entity.Scooter, error) {
 
 	var s = new(entity.Scooter)
 
@@ -251,11 +258,13 @@ func parseScooter(req io.Reader) (*entity.Scooter, error) {
 
 	err := json.NewDecoder(req).Decode(&s)
 	if err != nil {
+		log.Error(err)
 		return nil, nil
 	}
 	if err := validate.Struct(s); err != nil {
 		log.Warn(err)
 	}
+	log.Info(s == nil)
 	return s, nil
 }
 
@@ -294,7 +303,6 @@ func validateJWT(s string) (jwt.MapClaims, bool) {
 		log.Info(claims["user"], claims["exp"])
 	} else {
 		log.Error("error with claims")
-		fmt.Println(err)
 		return nil, false
 	}
 
