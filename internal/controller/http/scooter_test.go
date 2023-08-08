@@ -112,7 +112,8 @@ func TestController(t *testing.T) {
 	// }
 
 	//should get cookie
-	req1 := httptest.NewRequest(http.MethodGet, "/login", nil)
+	s := strings.NewReader(`{"userid": "alice"}`)
+	req1 := httptest.NewRequest(http.MethodPost, "/login", s)
 	rr := httptest.NewRecorder()
 	mux.ServeHTTP(rr, req1)
 	require.Equal(http.StatusMovedPermanently, rr.Result().StatusCode)

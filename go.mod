@@ -10,6 +10,8 @@ require (
 	github.com/jackc/pgx/v5 v5.4.2
 	github.com/rs/cors v1.9.0
 	github.com/sirupsen/logrus v1.9.3
+	github.com/stretchr/testify v1.8.4
+	go.uber.org/mock v0.2.0
 )
 
 require (
@@ -25,9 +27,6 @@ require (
 	github.com/leodido/go-urn v1.2.4 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rogpeppe/go-internal v1.11.0 // indirect
-	github.com/stretchr/objx v0.5.0 // indirect
-	github.com/stretchr/testify v1.8.4 // indirect
-	go.uber.org/mock v0.2.0 // indirect
 	golang.org/x/crypto v0.11.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.10.0 // indirect
