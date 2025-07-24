@@ -7,22 +7,21 @@ import (
 
 	"github.com/integer00/e-scooter/config"
 	"github.com/integer00/e-scooter/internal/controller/http"
+	"github.com/integer00/e-scooter/internal/registry"
 	"github.com/integer00/e-scooter/internal/repository"
-	webapi "github.com/integer00/e-scooter/internal/repository/webAPI"
-	"github.com/integer00/e-scooter/internal/usecase"
+	"github.com/integer00/e-scooter/internal/service"
 	"github.com/integer00/e-scooter/pkg/httpserver"
-	"github.com/integer00/e-scooter/pkg/postgres"
 	"github.com/rs/cors"
-	log "github.com/sirupsen/logrus"
 )
 
 func main() {
 	Run()
+	Shutdown()
 }
 
 func Run() {
 
-	log.Info("starting app")
+	println("starting app")
 
 	//should be in ENV within your container, setting here for convenience
 	os.Setenv("HOST", "localhost")
@@ -32,25 +31,25 @@ func Run() {
 
 	config := config.NewConfig()
 
-	scoRegistry := repository.NewRegistry()
-	userRegistry := repository.NewUserRegistry()
-	scoAPP := webapi.NewScooterAPP()
-	pgate := repository.NewPG()
+	scooterRegistry := registry.NewRegistry()
+	userRegistry := registry.NewUserRegistry()
+	scooterRepository := repository.NewScooterRepository()
+	paymentGate := repository.NewPG()
 
-	log.Info("getting postgres")
-	pg, err := postgres.New(config.PG_URL)
-	if err != nil {
-		log.Fatal("failed to initialize postgresql connection")
-	}
-	defer pg.Close()
+	// log.Info("getting postgres")
+	// pg, err := postgres.New(config.PG_URL)
+	// if err != nil {
+	// 	log.Fatal("failed to initialize postgresql connection")
+	// }
+	// defer pg.Close()
 
-	pgRepo := repository.NewPostgresRepo(pg)
+	// pgRepo := repository.NewPostgresRepo(pg) //new database, use interface , and in CLI argument when start use USE_PG=1, or fallover to internal inmem
 
-	scoUsecase := usecase.NewUseCase(scoRegistry, scoAPP, pgate, userRegistry, pgRepo)
-	scoController := http.NewScooterController(scoUsecase)
-	//can be also like service.{component}.{component_action}
+	scooterService := service.NewService(scooterRegistry, scooterRepository, paymentGate, userRegistry, nil)
 
-	mux := scoController.NewMux()
+	scooterHTTPController := http.NewHTTPController(scooterService)
+
+	mux := scooterHTTPController.NewMux()
 
 	//cors needs to be adjusted in production environment
 	handler := cors.Default().Handler(mux)
@@ -60,9 +59,10 @@ func Run() {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
 
+	//fix loop
 	select {
 	case s := <-interrupt:
-		log.Info("app - Run - signal: " + s.String())
+		print("app - Run - signal: " + s.String())
 		httpServer.Notify()
 		// case err = <-httpServer.Notify():
 		// 	log.Error(fmt.Errorf("app - Run - httpServer.Notify: %w", err))
@@ -70,9 +70,8 @@ func Run() {
 		// 	l.Error(fmt.Errorf("app - Run - rmqServer.Notify: %w", err))
 	}
 
-	// Shutdown
+}
 
-	// scoAPP.CallScooter()
-	// scoUsecase.GetScooter("id")
-
+func Shutdown() {
+	println("Cleanup after exit")
 }

@@ -12,13 +12,21 @@ type PaymentGateway interface {
 }
 
 type ScooterService interface {
-	StartScooter(sc Scooter) error
-	StopScooter(sc Scooter) error
+	BookScooter(scooterId string, userId string) error
+	StartScooter(scooterId string, userId string) error
+	StopScooter(scooterId string, userId string) error
+	RideHistory(userId string)
+	GetScooter(s string) string
+	GetEndpoints() []byte
+	RegisterScooter(s *Scooter) error
+	UserLogin(s string) (string, error)
+	GetUsers()
 }
 
 type User struct {
 	Id   string
-	Name string `json:"userid"`
+	Name string
+	// Name string `json:"userid"`
 }
 
 type Scooter struct {

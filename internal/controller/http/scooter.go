@@ -13,7 +13,6 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/integer00/e-scooter/internal/entity"
-	"github.com/integer00/e-scooter/internal/usecase"
 )
 
 type Controller interface {
@@ -28,12 +27,12 @@ type contextMessage struct{}
 var jwtkey = []byte("somesecretkey")
 
 type ScoController struct {
-	scooterUseCase usecase.UseCase
+	scooterService entity.ScooterService
 }
 
-func NewScooterController(u usecase.UseCase) Controller {
+func NewHTTPController(u entity.ScooterService) Controller {
 	return &ScoController{
-		scooterUseCase: u,
+		scooterService: u,
 	}
 }
 
@@ -42,6 +41,7 @@ func (sc ScoController) NewMux() *http.ServeMux {
 	mux.HandleFunc("/login", sc.loginHandler)
 	mux.HandleFunc("/registerScooter", sc.registerEndpointHandler)
 	mux.HandleFunc("/scooters", sc.checkTokenMiddleware(sc.getScootersHandler))
+	mux.HandleFunc("/users", sc.checkTokenMiddleware(sc.getUsersHandler))
 	mux.HandleFunc("/bookscooter", sc.checkTokenMiddleware(sc.bookScooterHandler))
 	mux.HandleFunc("/start", sc.checkTokenMiddleware(sc.startScooterHandler))
 	mux.HandleFunc("/stop", sc.checkTokenMiddleware(sc.stopScooterHandler))
@@ -67,7 +67,7 @@ func (sc ScoController) loginHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	user, _ := sc.scooterUseCase.UserLogin(name.Name)
+	user, _ := sc.scooterService.UserLogin(name.Name)
 	s := generateJWT(user)
 
 	cookie := http.Cookie{
@@ -88,31 +88,31 @@ func (sc ScoController) loginHandler(w http.ResponseWriter, req *http.Request) {
 
 func (sc *ScoController) checkTokenMiddleware(f http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		if req.Header["token"] != nil {
-			//verify
-		}
-		//check cookie
-		cookie, err := req.Cookie("token")
-		if err != nil {
-			//we have no cookie
-			http.Error(w, `{"status": "unauthorized"}`, http.StatusUnauthorized)
-			return
-		}
+		// if req.Header["token"] != nil {
+		// 	//verify
+		// }
+		// //check cookie
+		// cookie, err := req.Cookie("token")
+		// if err != nil {
+		// 	//we have no cookie
+		// 	http.Error(w, `{"status": "unauthorized"}`, http.StatusUnauthorized)
+		// 	return
+		// }
 
-		// log.Info(cookie.Value)
+		// // log.Info(cookie.Value)
 
-		claims, valid := validateJWT(cookie.Value)
-		if !valid {
-			http.Error(w, ErrInvalidCookie.Error(), http.StatusBadRequest)
-			return
-		}
+		// claims, valid := validateJWT(cookie.Value)
+		// if !valid {
+		// 	http.Error(w, ErrInvalidCookie.Error(), http.StatusBadRequest)
+		// 	return
+		// }
 
-		// should be good after, enhancing context
+		// // should be good after, enhancing context
 
-		// add proper set\get for this
-		username := claims["user"].(string)
+		// // add proper set\get for this
+		// username := claims["user"].(string)
 
-		ctx := context.WithValue(req.Context(), &contextMessage{}, username)
+		ctx := context.WithValue(req.Context(), &contextMessage{}, "some")
 
 		f(w, req.WithContext(ctx))
 	}
@@ -131,7 +131,7 @@ func (sc ScoController) registerEndpointHandler(w http.ResponseWriter, req *http
 	}
 
 	log.Info(p)
-	if ok := sc.scooterUseCase.RegisterScooter(p); ok != nil {
+	if ok := sc.scooterService.RegisterScooter(p); ok != nil {
 		log.Error(err)
 	}
 
@@ -148,12 +148,12 @@ func (sc ScoController) getScootersHandler(w http.ResponseWriter, req *http.Requ
 
 	log.Info("asking for endpoints")
 
-	s := sc.scooterUseCase.GetEndpoints()
+	s := sc.scooterService.GetEndpoints()
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(s)
-
 }
+
 func (sc ScoController) bookScooterHandler(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodPost {
 		http.Error(w, "Wrong method", http.StatusMethodNotAllowed)
@@ -168,7 +168,7 @@ func (sc ScoController) bookScooterHandler(w http.ResponseWriter, req *http.Requ
 	}
 	log.Info(msg)
 
-	if ok := sc.scooterUseCase.BookScooter(msg.ScooterId, msg.UserId); ok != nil {
+	if ok := sc.scooterService.BookScooter(msg.ScooterId, msg.UserId); ok != nil {
 		log.Error(ok)
 		http.Error(w, ok.Error(), http.StatusBadRequest)
 	}
@@ -192,7 +192,7 @@ func (sc ScoController) startScooterHandler(w http.ResponseWriter, req *http.Req
 		return
 	}
 
-	if ok := sc.scooterUseCase.StartScooter(msg.ScooterId, msg.UserId); ok != nil {
+	if ok := sc.scooterService.StartScooter(msg.ScooterId, msg.UserId); ok != nil {
 		http.Error(w, ok.Error(), http.StatusBadRequest)
 	}
 
@@ -210,7 +210,7 @@ func (sc ScoController) stopScooterHandler(w http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	if ok := sc.scooterUseCase.StopScooter(msg.ScooterId, msg.UserId); ok != nil {
+	if ok := sc.scooterService.StopScooter(msg.ScooterId, msg.UserId); ok != nil {
 		http.Error(w, ok.Error(), http.StatusBadRequest)
 	}
 }
@@ -228,7 +228,7 @@ func (sc ScoController) rideHistoryHandler(w http.ResponseWriter, req *http.Requ
 
 	log.Info("username: ", username)
 
-	sc.scooterUseCase.RideHistory(username)
+	sc.scooterService.RideHistory(username)
 
 	w.WriteHeader(http.StatusOK)
 
@@ -307,5 +307,8 @@ func validateJWT(s string) (jwt.MapClaims, bool) {
 	}
 
 	return claims, true
+}
 
+func (sc ScoController) getUsersHandler(w http.ResponseWriter, req *http.Request) {
+	sc.scooterService.GetUsers()
 }

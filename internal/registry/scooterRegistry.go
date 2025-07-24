@@ -1,8 +1,9 @@
-package repository
+package registry
 
 import (
 	"encoding/json"
 	"errors"
+	"sync"
 
 	"github.com/integer00/e-scooter/internal/entity"
 	log "github.com/sirupsen/logrus"
@@ -11,6 +12,7 @@ import (
 type ScooterRegistry struct {
 	// registry map[string]string
 	registry []entity.Scooter
+	lock     *sync.Mutex
 	// rideHistory []entity.Ride //implement cache in v2
 }
 
@@ -18,11 +20,15 @@ type ScooterRegistry struct {
 func NewRegistry() *ScooterRegistry {
 	return &ScooterRegistry{
 		registry: []entity.Scooter{},
+		lock:     &sync.Mutex{},
 		// rideHistory: []entity.Ride{},
 	}
 }
 
 func (sr *ScooterRegistry) RegisterScooter(scooter entity.Scooter) error {
+	sr.lock.Lock()
+	defer sr.lock.Unlock()
+
 	log.Info("New registration!")
 	log.Info(scooter)
 	sr.registry = append(sr.registry, scooter)

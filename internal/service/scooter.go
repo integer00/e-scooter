@@ -1,4 +1,4 @@
-package usecase
+package service
 
 import (
 	"context"
@@ -10,43 +10,34 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/integer00/e-scooter/internal/entity"
+	"github.com/integer00/e-scooter/internal/registry"
 	"github.com/integer00/e-scooter/internal/repository"
 )
 
-type UseCase interface {
-	BookScooter(scooterId string, userId string) error
-	StartScooter(scooterId string, userId string) error
-	StopScooter(scooterId string, userId string) error
-	RideHistory(userId string)
-	GetScooter(s string) string
-	GetEndpoints() []byte
-	RegisterScooter(s *entity.Scooter) error
-	UserLogin(s string) (string, error)
+type scooterService struct {
+	scooterRegistry   *registry.ScooterRegistry
+	scooterRepository *repository.ScooterRepository
+	paymentGate       entity.PaymentGateway
+	userRegistry      *registry.UserRegistry
+	postgresRepo      *repository.PostgresRepo
 }
 
-type scooterUseCase struct {
-	scooterRegistry *repository.ScooterRegistry
-	scooterApp      entity.ScooterService
-	paymentGate     entity.PaymentGateway
-	userRegistry    *repository.UserRegistry
-	postgresRepo    *repository.PostgresRepo
-}
-
-func NewUseCase(sr *repository.ScooterRegistry,
-	sapp entity.ScooterService, pg entity.PaymentGateway,
-	ur *repository.UserRegistry, pgr *repository.PostgresRepo) UseCase {
-	return &scooterUseCase{
-		scooterRegistry: sr,
-		scooterApp:      sapp,
-		paymentGate:     pg,
-		userRegistry:    ur,
-		postgresRepo:    pgr,
+// add interfaces
+func NewService(sr *registry.ScooterRegistry,
+	screpo *repository.ScooterRepository, pg entity.PaymentGateway,
+	ur *registry.UserRegistry, pgr *repository.PostgresRepo) entity.ScooterService {
+	return &scooterService{
+		scooterRegistry:   sr,
+		scooterRepository: screpo,
+		paymentGate:       pg,
+		userRegistry:      ur,
+		postgresRepo:      pgr,
 	}
 }
 
-func (suc scooterUseCase) UserLogin(name string) (string, error) {
+func (suc scooterService) UserLogin(name string) (string, error) {
 	log.Trace("usecase for userlogin")
-	ctx := context.Background() //timeout
+	// ctx := context.Background() //timeout
 
 	// log.Info(suc.postgresRepo.GetRides(context.Background()))
 
@@ -55,44 +46,43 @@ func (suc scooterUseCase) UserLogin(name string) (string, error) {
 	} else { //creating user (from db)
 		//check db
 		log.Info("going for user to db")
-		query := "select name from users where name = '" + name + "'"
-		if dbUser, err := suc.postgresRepo.GetUserById(ctx, query); err == nil {
-			log.Info(dbUser)
-			log.Info("found user in db, adding to local registry")
+		// query := "select name from users where name = '" + name + "'"
+		// if dbUser, err := suc.postgresRepo.GetUserById(ctx, query); err == nil {
+		// log.Info(dbUser)
+		// log.Info("found user in db, adding to local registry")
 
-			err := suc.userRegistry.AddUser(dbUser)
-			if err != nil {
-				log.Error("failed to create user!")
-				return "", nil
-			}
+		// err := suc.userRegistry.AddUser(dbUser)
+		// if err != nil {
+		// 	log.Error("failed to create user!")
+		// 	return "", nil
 
-		} else {
-			log.Info("adding to db")
-			query := "insert into users (name) values ('" + name + "')"
-			err := suc.postgresRepo.AddUser(ctx, query)
-			if err != nil {
-				log.Error(err)
-			}
+		// } else {
+		// log.Info("adding to db")
+		// query := "insert into users (name) values ('" + name + "')"
+		// err := suc.postgresRepo.AddUser(ctx, query)
+		// if err != nil {
+		// log.Error(err)
+		// }
 
-			er := suc.userRegistry.AddUser(name)
-			if er != nil {
-				log.Error("failed to create user!")
-				return "", nil
-			}
+		er := suc.userRegistry.AddUser(name)
+		if er != nil {
+			log.Error("failed to create user!")
+			return "", nil
 		}
+		// }
 	}
 
 	return name, nil
 }
 
-func (suc scooterUseCase) GetScooter(s string) string {
+func (suc scooterService) GetScooter(s string) string {
 	log.Trace("usecase for getting scooter")
 
 	// suc.scooterRegistry.GetScooter()
 	return "usecase returns"
 }
 
-func (suc scooterUseCase) RegisterScooter(scooter *entity.Scooter) error {
+func (suc scooterService) RegisterScooter(scooter *entity.Scooter) error {
 	log.Trace("usecase for scooterRegistry")
 
 	err := suc.scooterRegistry.RegisterScooter(*scooter)
@@ -103,7 +93,7 @@ func (suc scooterUseCase) RegisterScooter(scooter *entity.Scooter) error {
 	return nil
 }
 
-func (suc scooterUseCase) GetEndpoints() []byte {
+func (suc scooterService) GetEndpoints() []byte {
 	log.Trace("usecase for getendpoints")
 	// rides, _ := suc.postgresRepo.GetRides(context.Background())
 
@@ -112,7 +102,7 @@ func (suc scooterUseCase) GetEndpoints() []byte {
 	return suc.scooterRegistry.GetScooters()
 }
 
-func (suc scooterUseCase) BookScooter(scooterId string, userId string) error {
+func (suc scooterService) BookScooter(scooterId string, userId string) error {
 	log.Info("booking scooter...")
 	ctx := context.Background()
 
@@ -167,7 +157,7 @@ func (suc scooterUseCase) BookScooter(scooterId string, userId string) error {
 	return nil
 }
 
-func (suc scooterUseCase) StartScooter(scooterId string, userId string) error {
+func (suc scooterService) StartScooter(scooterId string, userId string) error {
 	log.Trace("usecase for starting scooter")
 	//handle all related things , charge user, start scooter
 	// validate and start has different context
@@ -194,7 +184,7 @@ func (suc scooterUseCase) StartScooter(scooterId string, userId string) error {
 
 	suc.paymentGate.ChargeDeposit() //need action type(firstStart\finishRide)
 
-	suc.scooterApp.StartScooter(*scooter)
+	suc.scooterRepository.StartScooter(*scooter)
 
 	timeStart := time.Now().Unix()
 
@@ -210,7 +200,7 @@ func (suc scooterUseCase) StartScooter(scooterId string, userId string) error {
 	return nil
 }
 
-func (suc scooterUseCase) StopScooter(scooterId string, userId string) error {
+func (suc scooterService) StopScooter(scooterId string, userId string) error {
 	log.Trace("usecase for stoping scooter")
 
 	ctx := context.Background()
@@ -234,7 +224,7 @@ func (suc scooterUseCase) StopScooter(scooterId string, userId string) error {
 	suc.paymentGate.ChargeFair()
 	fare := 5 //get real fare
 
-	suc.scooterApp.StopScooter(*scooter)
+	suc.scooterRepository.StopScooter(*scooter)
 
 	//releasing
 	scooter.Available = true
@@ -253,7 +243,7 @@ func (suc scooterUseCase) StopScooter(scooterId string, userId string) error {
 	return nil
 }
 
-func (sco scooterUseCase) RideHistory(userId string) {
+func (sco scooterService) RideHistory(userId string) {
 	log.Trace("usecase for ride history")
 	ctx := context.Background()
 
@@ -263,4 +253,8 @@ func (sco scooterUseCase) RideHistory(userId string) {
 
 	log.Info(rides)
 
+}
+
+func (ss scooterService) GetUsers() {
+	ss.userRegistry.GetUsers()
 }

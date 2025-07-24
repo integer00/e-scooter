@@ -1,4 +1,4 @@
-package webapi
+package repository
 
 import (
 	"bytes"
@@ -8,24 +8,24 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-//put in another folder maybe
+//http interface that interacts with scooters
 
-type ScooterService struct {
+type ScooterRepository struct {
 }
 
-func NewScooterAPP() *ScooterService {
-	return &ScooterService{}
+func NewScooterRepository() *ScooterRepository {
+	return &ScooterRepository{}
 }
 
 // from client post /start&id=id
-func (sapp ScooterService) StartScooter(sc entity.Scooter) error {
+func (sapp ScooterRepository) StartScooter(sc entity.Scooter) error {
 	log.Trace("starting scooter")
 	log.Info("Starting scooter")
 	sapp.start(sc)
 
 	return nil
 }
-func (sapp ScooterService) StopScooter(sc entity.Scooter) error {
+func (sapp ScooterRepository) StopScooter(sc entity.Scooter) error {
 	log.Trace("stopping scooter")
 	log.Info("Stopping scooter")
 	sapp.stop(sc)
@@ -37,7 +37,7 @@ func (sapp ScooterService) StopScooter(sc entity.Scooter) error {
 // 	return nil
 // }
 
-func (sapp ScooterService) start(sc entity.Scooter) error {
+func (sapp ScooterRepository) start(sc entity.Scooter) error {
 	println("starting with" + sc.Address)
 
 	res := DoHTTPRequest("POST", []byte(sc.Id), "http://"+sc.Address+"/start")
@@ -46,7 +46,7 @@ func (sapp ScooterService) start(sc entity.Scooter) error {
 	return nil
 }
 
-func (sapp ScooterService) stop(sc entity.Scooter) error {
+func (sapp ScooterRepository) stop(sc entity.Scooter) error {
 	println("stopping with" + sc.Address)
 
 	res := DoHTTPRequest("POST", []byte(sc.Id), "http://"+sc.Address+"/stop")
