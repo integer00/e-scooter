@@ -1,17 +1,14 @@
 package main
 
 import (
+	"fmt"
 	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/integer00/e-scooter/config"
 	"github.com/integer00/e-scooter/internal/controller/http"
 	"github.com/integer00/e-scooter/internal/registry"
 	"github.com/integer00/e-scooter/internal/repository"
 	"github.com/integer00/e-scooter/internal/service"
-	"github.com/integer00/e-scooter/pkg/httpserver"
-	"github.com/rs/cors"
 )
 
 func main() {
@@ -21,7 +18,7 @@ func main() {
 
 func Run() {
 
-	println("starting app")
+	fmt.Println("starting app")
 
 	//should be in ENV within your container, setting here for convenience
 	os.Setenv("HOST", "localhost")
@@ -32,9 +29,8 @@ func Run() {
 	config := config.NewConfig()
 
 	scooterRegistry := registry.NewRegistry()
-	userRegistry := registry.NewUserRegistry()
 	scooterRepository := repository.NewScooterRepository()
-	paymentGate := repository.NewPG()
+	paymentGate := repository.NewPaymentGate()
 
 	// log.Info("getting postgres")
 	// pg, err := postgres.New(config.PG_URL)
@@ -45,33 +41,15 @@ func Run() {
 
 	// pgRepo := repository.NewPostgresRepo(pg) //new database, use interface , and in CLI argument when start use USE_PG=1, or fallover to internal inmem
 
-	scooterService := service.NewService(scooterRegistry, scooterRepository, paymentGate, userRegistry, nil)
+	scooterService := service.NewService(scooterRegistry, scooterRepository, paymentGate, nil)
 
 	scooterHTTPController := http.NewHTTPController(scooterService)
 
-	mux := scooterHTTPController.NewMux()
-
-	//cors needs to be adjusted in production environment
-	handler := cors.Default().Handler(mux)
-
-	httpServer := httpserver.New(handler, config.Host+":"+config.Port)
-
-	interrupt := make(chan os.Signal, 1)
-	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
-
-	//fix loop
-	select {
-	case s := <-interrupt:
-		print("app - Run - signal: " + s.String())
-		httpServer.Notify()
-		// case err = <-httpServer.Notify():
-		// 	log.Error(fmt.Errorf("app - Run - httpServer.Notify: %w", err))
-		// case err = <-rmqServer.Notify():
-		// 	l.Error(fmt.Errorf("app - Run - rmqServer.Notify: %w", err))
-	}
+	scooterHTTPController.Run(config)
+	//GRPCController.Run(config)
 
 }
 
 func Shutdown() {
-	println("Cleanup after exit")
+	fmt.Println("Cleanup after exit")
 }

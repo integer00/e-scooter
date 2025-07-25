@@ -1,14 +1,25 @@
 package entity
 
-// type Registry interface {
-// 	// GetScooter(sc interface{})
-// 	RegisterScooter(r Registry, sc *Scooter) error
-// }
-
 type PaymentGateway interface {
 	ChargeDeposit() error
 	ChargeFair() error
 	GetUserBalance() (int, error)
+}
+
+type UserRegistry interface {
+	GetUserById() *User
+	GetAllUsers()
+	AddUser()
+}
+
+type ScooterRegistry interface {
+	AddScooter()
+	GetScooterById()
+	GetAllScooters()
+}
+
+type scooterRepository interface {
+	ContactScooter()
 }
 
 type ScooterService interface {
@@ -34,6 +45,8 @@ type Scooter struct {
 	Address   string `json:"address"`
 	Available bool   `json:"available"`
 }
+
+//interservice message system
 
 type Message struct {
 	UserId    string `json:"userid" validate:"required"`

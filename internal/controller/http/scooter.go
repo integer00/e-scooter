@@ -6,17 +6,23 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/go-playground/validator"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/rs/cors"
 	log "github.com/sirupsen/logrus"
 
+	"github.com/integer00/e-scooter/config"
 	"github.com/integer00/e-scooter/internal/entity"
+	"github.com/integer00/e-scooter/pkg/httpserver"
 )
 
 type Controller interface {
-	NewMux() *http.ServeMux
+	Run(config *config.Config)
 }
 
 var ErrMalformedJsonPayload = errors.New("malformed json or empty payload")
@@ -36,7 +42,7 @@ func NewHTTPController(u entity.ScooterService) Controller {
 	}
 }
 
-func (sc ScoController) NewMux() *http.ServeMux {
+func (sc ScoController) Run(config *config.Config) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/login", sc.loginHandler)
 	mux.HandleFunc("/registerScooter", sc.registerEndpointHandler)
@@ -47,7 +53,25 @@ func (sc ScoController) NewMux() *http.ServeMux {
 	mux.HandleFunc("/stop", sc.checkTokenMiddleware(sc.stopScooterHandler))
 	mux.HandleFunc("/history", sc.checkTokenMiddleware(sc.rideHistoryHandler))
 
-	return mux
+	//cors needs to be adjusted in production environment
+	handler := cors.Default().Handler(mux)
+
+	httpServer := httpserver.New(handler, config.Host+":"+config.Port)
+
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
+
+	//fix loop
+	select {
+	case s := <-interrupt:
+		log.Info("HTTPController: " + s.String() + ", exiting")
+		httpServer.Notify()
+		// case err = <-httpServer.Notify():
+		// 	log.Error(fmt.Errorf("app - Run - httpServer.Notify: %w", err))
+		// case err = <-rmqServer.Notify():
+		// 	l.Error(fmt.Errorf("app - Run - rmqServer.Notify: %w", err))
+	}
+
 }
 
 func (sc ScoController) loginHandler(w http.ResponseWriter, req *http.Request) {

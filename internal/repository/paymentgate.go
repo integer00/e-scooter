@@ -11,7 +11,7 @@ type PaymentGate struct {
 	//PG is an external service, mocking
 }
 
-func NewPG() entity.PaymentGateway {
+func NewPaymentGate() entity.PaymentGateway {
 	return &PaymentGate{}
 }
 
@@ -28,9 +28,10 @@ func (pg PaymentGate) GetUserBalance() (int, error) {
 	return 1000, nil
 }
 
+// ???
 func PgHandler(userid string, operation string) error {
 
-	pg := NewPG()
+	pg := NewPaymentGate()
 
 	balance, _ := pg.GetUserBalance()
 
